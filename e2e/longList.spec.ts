@@ -22,5 +22,5 @@ for (const client of ["mock", "fakeXrm"]) {
 test("runs the real xrmClient against the in-memory fake Xrm with ?client=fakeXrm", async ({ page }) => {
   await page.goto("/?client=fakeXrm&scenario=default&lang=en");
   await expect(page.getByText("Contoso purchase order 1001")).toBeVisible();
-  await expect(page.getByText("Approved")).toBeVisible();
+  await expect(page.getByRole("grid").getByText("Approved")).toBeVisible();
 });
