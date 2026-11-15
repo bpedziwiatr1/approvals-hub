@@ -12,5 +12,7 @@
   "status.abandoned": "Porzucone",
   "list.loading": "Ładowanie zatwierdzeń",
   "list.empty": "Brak zatwierdzeń",
-  "list.error": "Nie udało się załadować zatwierdzeń"
+  "list.error": "Nie udało się załadować zatwierdzeń",
+  "list.region": "Lista zatwierdzeń",
+  "list.loadingMore": "Ładowanie kolejnych zatwierdzeń"
 }
