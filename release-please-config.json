@@ -4,6 +4,7 @@
     ".": {
       "release-type": "node",
       "package-name": "approvals-hub",
+      "include-component-in-tag": false,
       "changelog-path": "CHANGELOG.md",
       "extra-files": [{ "type": "generic", "path": "solution/src/Other/Solution.xml" }]
     }

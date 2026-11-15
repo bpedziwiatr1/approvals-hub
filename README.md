@@ -19,7 +19,7 @@ The screenshots use the synthetic `multiStep` scenario of the local mock client,
 
 The Dataverse solution `ApprovalsHub` (publisher prefix `bpt`) contains the page as a web resource, the model-driven app **Approvals Hub** and the environment variable `bpt_ApprovalsHubConfig`.
 
-1. Download `ApprovalsHub_<version>_managed.zip` from the [GitHub Releases](../../releases) page. Use the `_unmanaged` zip only in a development environment.
+1. Download `ApprovalsHub_<version>_managed.zip` from the [latest GitHub Release](../../releases/latest). Use the `_unmanaged` zip only in a development environment.
 2. In Power Apps, open **Solutions**, choose **Import solution**, select the zip and finish the import.
 3. Optional: set the current value of the environment variable `bpt_ApprovalsHubConfig` to your own configuration. Without one, the default value applies: `{"profiles":{"default":{"defaultStatus":"pending","columns":["title","status","createdOn","owner","currentStep","lastDecision"]}}}`. Its format is described in [Writing a Profile](#writing-a-profile).
 4. Open the **Approvals Hub** app. Its single menu entry points at `$webresource:bpt_/approvalshub/index.html?data=profile%3Ddefault`.
