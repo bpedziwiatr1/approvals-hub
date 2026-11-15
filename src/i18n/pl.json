@@ -27,6 +27,9 @@
   "detail.noResponses": "Brak odpowiedzi",
   "detail.waitingFor": "Oczekiwanie na",
   "detail.reassigned": "Przekazane dalej",
+  "detail.openRecord": "Otwórz rekord",
+  "detail.noRegarding": "Nie udało się ustalić rekordu powiązanego z tym zatwierdzeniem",
+  "detail.openRecordFailed": "Nie udało się otworzyć rekordu",
   "filter.search": "Szukaj po tytule",
   "filter.status": "Status"
 }

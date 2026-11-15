@@ -27,6 +27,9 @@
   "detail.noResponses": "No responses yet",
   "detail.waitingFor": "Waiting for",
   "detail.reassigned": "Reassigned",
+  "detail.openRecord": "Open record",
+  "detail.noRegarding": "No record could be identified for this approval",
+  "detail.openRecordFailed": "Could not open the record",
   "filter.search": "Search by title",
   "filter.status": "Status"
 }

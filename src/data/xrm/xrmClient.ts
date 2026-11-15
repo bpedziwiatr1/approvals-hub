@@ -72,6 +72,9 @@ export function createXrmClient(xrm: XrmLike): DataClient {
     exportApprovals: () => ({ [Symbol.asyncIterator]: () => ({ next: () => notYet("exportApprovals") }) }),
     getCurrentUser: () => notYet("getCurrentUser"),
     loadConfigValue: () => notYet("loadConfigValue"),
-    openRecord: () => notYet("openRecord"),
+    async openRecord(record) {
+      if (!xrm.Navigation) throw new DataError("server", "Xrm.Navigation is not available outside a model-driven app");
+      await xrm.Navigation.openForm({ entityName: record.entityName, entityId: record.entityId });
+    },
   };
 }

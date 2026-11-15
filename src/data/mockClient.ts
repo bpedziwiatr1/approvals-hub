@@ -1,11 +1,14 @@
-import { DataError, type ApprovalQuery, type DataClient, type StatusCounts } from "./dataClient";
+import { DataError, type ApprovalQuery, type DataClient, type RecordRef, type StatusCounts } from "./dataClient";
 import { scenarioApprovals, type ScenarioName } from "./scenarios";
 import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
 
 /** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
-export function createMockClient(scenario: ScenarioName): DataClient {
+export type MockClient = DataClient & { /** Calls of openRecord, in order. */ openedRecords: RecordRef[] };
+
+export function createMockClient(scenario: ScenarioName): MockClient {
+  const openedRecords: RecordRef[] = [];
   const rows = scenarioApprovals(scenario);
   const all = rows.map((row) => mapApprovalListItem({ ...row }));
   const matching = (query: ApprovalQuery) =>
@@ -41,6 +44,9 @@ export function createMockClient(scenario: ScenarioName): DataClient {
     async loadConfigValue() {
       return null;
     },
-    async openRecord() {},
+    openedRecords,
+    async openRecord(record) {
+      openedRecords.push(record);
+    },
   };
 }

@@ -9,6 +9,7 @@ export const APPROVAL = {
   statuscode: "statuscode",
   createdOn: "createdon",
   details: "msdyn_flow_approval_details",
+  itemLink: "msdyn_flow_approval_itemlink",
 } as const;
 
 /** Entity sets by logical name, for transports that address the Web API by URL. */
@@ -38,6 +39,7 @@ export interface ApprovalRow {
   statuscode: number;
   createdon: string;
   msdyn_flow_approval_details?: string | null;
+  msdyn_flow_approval_itemlink?: string | null;
   msdyn_flow_approvalrelationship_approvalrequests?: ApprovalRequestRow[];
   msdyn_flow_approvalrelationship_approvalresponses?: ApprovalResponseRow[];
   msdyn_flow_approvalrelationship_approvalsteps?: ApprovalStepRow[];

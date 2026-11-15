@@ -124,7 +124,7 @@ describe("xrmClient getApprovalDetail contract", () => {
     expect(request.entitySet).toBe("msdyn_flow_approvals");
     expect(request.params.$filter).toBe(`msdyn_flow_approvalid eq ${ID}`);
     expect(request.params.$select).toBe(
-      "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon,msdyn_flow_approval_details",
+      "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon,msdyn_flow_approval_details,msdyn_flow_approval_itemlink",
     );
     expect(request.params.$expand).toBe(
       [
@@ -167,5 +167,41 @@ describe("xrmClient getApprovalDetail contract", () => {
   it("maps a 403 to forbidden", async () => {
     const client = createXrmClient(createFakeXrm({ failWith: { status: 403, message: "denied" } }).xrm);
     await expect(client.getApprovalDetail(ID)).rejects.toMatchObject({ kind: "forbidden" });
+  });
+});
+
+describe("xrmClient Regarding Record contract", () => {
+  const ID = "00000000-0000-0000-0000-00000000d101";
+  const RECORD = "00000000-0000-0000-0000-0000000000aa";
+  const url = (query: string) => `https://contoso.crm.dynamics.com/main.aspx?${query}`;
+
+  it("resolves the Regarding Record from the item link, else from the details", async () => {
+    const fake = createFakeXrm({
+      approvals: [
+        buildApproval({ msdyn_flow_approvalid: ID, msdyn_flow_approval_itemlink: url(`pagetype=entityrecord&etn=account&id=${RECORD}`) }),
+        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000d102", msdyn_flow_approval_details: `See [it](${url(`etn=contact&id={${RECORD.toUpperCase()}}`)})` }),
+        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000d103" }),
+      ],
+    });
+    const client = createXrmClient(fake.xrm);
+
+    expect((await client.getApprovalDetail(ID)).regarding).toEqual({ entityName: "account", entityId: RECORD });
+    expect((await client.getApprovalDetail("00000000-0000-0000-0000-00000000d102")).regarding).toEqual({ entityName: "contact", entityId: RECORD });
+    expect((await client.getApprovalDetail("00000000-0000-0000-0000-00000000d103")).regarding).toBeNull();
+  });
+
+  it("opens the record in its form through Xrm.Navigation.openForm", async () => {
+    const fake = createFakeXrm();
+
+    await createXrmClient(fake.xrm).openRecord({ entityName: "account", entityId: RECORD });
+
+    expect(fake.openedForms).toEqual([{ entityName: "account", entityId: RECORD }]);
+  });
+
+  it("rejects with a server error when the page is not hosted in an app with Xrm.Navigation", async () => {
+    const fake = createFakeXrm();
+    const client = createXrmClient({ WebApi: fake.xrm.WebApi });
+
+    await expect(client.openRecord({ entityName: "account", entityId: RECORD })).rejects.toMatchObject({ kind: "server" });
   });
 });

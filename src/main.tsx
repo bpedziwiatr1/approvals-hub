@@ -6,8 +6,11 @@ import type { HostWindow } from "./data/xrm/xrmClient";
 import { resolveLang } from "./i18n";
 import { resolveTheme } from "./theme";
 
-const { client } = selectClient(window.location.search, window as unknown as HostWindow);
+const { client, openedRecords } = selectClient(window.location.search, window as unknown as HostWindow);
 const theme = resolveTheme(window.location.search, window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+// Local clients only: lets e2e tests observe which record the page asked to open.
+if (openedRecords) (window as unknown as { __openedRecords: () => unknown }).__openedRecords = openedRecords;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

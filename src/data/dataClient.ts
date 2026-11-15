@@ -68,6 +68,8 @@ export interface ApprovalDetail extends ApprovalListItem {
   /** Markdown, as written by the flow. */
   details: string;
   steps: ApprovalStepDetail[];
+  /** The Regarding Record, when one can be identified from the item link or the details. */
+  regarding: RecordRef | null;
 }
 
 export interface CurrentUser {

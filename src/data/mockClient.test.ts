@@ -48,3 +48,21 @@ describe("mockClient multiStep scenario", () => {
     await expect(createMockClient("default").getApprovalDetail("00000000-0000-0000-0000-00000000ffff")).rejects.toMatchObject({ kind: "notFound" });
   });
 });
+
+describe("mockClient Regarding Record", () => {
+  it("records openRecord calls", async () => {
+    const client = createMockClient("default");
+    await client.openRecord({ entityName: "account", entityId: "00000000-0000-0000-0000-0000000000aa" });
+    expect(client.openedRecords).toEqual([{ entityName: "account", entityId: "00000000-0000-0000-0000-0000000000aa" }]);
+  });
+
+  it("resolves a Regarding Record in default and none in noRegarding", async () => {
+    const withLink = await createMockClient("default").getApprovalDetail("00000000-0000-0000-0000-00000000a001");
+    expect(withLink.regarding).not.toBeNull();
+    const none = createMockClient("noRegarding");
+    const { items } = await none.listApprovals({}, { size: 50 });
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) expect((await none.getApprovalDetail(item.id)).regarding).toBeNull();
+    expect(isScenarioName("noRegarding")).toBe(true);
+  });
+});
