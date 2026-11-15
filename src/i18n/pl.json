@@ -26,5 +26,7 @@
   "detail.stepNamed": "Krok {{number}}: {{stage}}",
   "detail.noResponses": "Brak odpowiedzi",
   "detail.waitingFor": "Oczekiwanie na",
-  "detail.reassigned": "Przekazane dalej"
+  "detail.reassigned": "Przekazane dalej",
+  "filter.search": "Szukaj po tytule",
+  "filter.status": "Status"
 }

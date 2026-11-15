@@ -1,5 +1,7 @@
 import {
+  Checkbox,
   FluentProvider,
+  Input,
   Spinner,
   Table,
   TableBody,
@@ -14,8 +16,11 @@ import {
 } from "@fluentui/react-components";
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { I18nextProvider, useTranslation } from "react-i18next";
-import type { ApprovalListItem, DataClient } from "./data/dataClient";
+import type { ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
 import { DetailPane } from "./detail/DetailPane";
+import { STATUS_ORDER, readFilters, writeFilters, type Filters } from "./filters/urlState";
+import { StatusBadge } from "./StatusBadge";
+import { useDebouncedValue } from "./useDebouncedValue";
 import { visibleRange } from "./grid/virtualRange";
 import { createI18n, type Lang } from "./i18n";
 import { fluentTheme, type ThemeName } from "./theme";
@@ -26,6 +31,7 @@ const OVERSCAN = 10;
 /** Used until the scroll container has been laid out (and in jsdom, which has no layout). */
 const FALLBACK_VIEWPORT_HEIGHT = 800;
 const COLUMN_COUNT = 3;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const useStyles = makeStyles({
   page: {
@@ -45,6 +51,9 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
     borderRadius: tokens.borderRadiusMedium,
   },
+  filterBar: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: tokens.spacingHorizontalL, marginBottom: tokens.spacingVerticalM },
+  search: { minWidth: "280px" },
+  statuses: { display: "flex", flexWrap: "wrap", border: "none", margin: 0, padding: 0 },
   header: { position: "sticky", top: 0, zIndex: 1, backgroundColor: tokens.colorNeutralBackground1 },
   row: { height: `${ROW_HEIGHT}px`, cursor: "pointer" },
   selected: { backgroundColor: tokens.colorNeutralBackground1Selected },
@@ -79,7 +88,7 @@ interface ListState {
 const INITIAL: ListState = { items: null, continuationToken: null, loadingMore: false, failed: false };
 
 /** Loads the list one server page at a time; `loadMore` fetches the next page when there is one. */
-function useApprovalPages(client: DataClient) {
+function useApprovalPages(client: DataClient, query: ApprovalQuery) {
   const [state, setState] = useState<ListState>(INITIAL);
   const inFlight = useRef(false);
   const generation = useRef(0);
@@ -88,7 +97,7 @@ function useApprovalPages(client: DataClient) {
     const gen = ++generation.current;
     inFlight.current = true;
     client
-      .listApprovals({}, { size: PAGE_SIZE })
+      .listApprovals(query, { size: PAGE_SIZE })
       .then((page) => {
         if (gen === generation.current) setState({ ...INITIAL, items: page.items, continuationToken: page.continuationToken });
       })
@@ -102,7 +111,7 @@ function useApprovalPages(client: DataClient) {
       generation.current += 1;
       inFlight.current = false;
     };
-  }, [client]);
+  }, [client, query]);
 
   const loadMore = useCallback(() => {
     const token = state.continuationToken;
@@ -111,7 +120,7 @@ function useApprovalPages(client: DataClient) {
     inFlight.current = true;
     setState((s) => ({ ...s, loadingMore: true }));
     client
-      .listApprovals({}, { size: PAGE_SIZE, continuationToken: token })
+      .listApprovals(query, { size: PAGE_SIZE, continuationToken: token })
       .then((page) => {
         if (gen === generation.current)
           setState((s) => ({ ...s, items: [...(s.items ?? []), ...page.items], continuationToken: page.continuationToken, loadingMore: false }));
@@ -122,7 +131,7 @@ function useApprovalPages(client: DataClient) {
       .finally(() => {
         if (gen === generation.current) inFlight.current = false;
       });
-  }, [client, state.continuationToken, state.failed]);
+  }, [client, query, state.continuationToken, state.failed]);
 
   return { ...state, loadMore };
 }
@@ -130,7 +139,54 @@ function useApprovalPages(client: DataClient) {
 function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
   const styles = useStyles();
   const { t } = useTranslation();
-  const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client);
+  const [filters, setFilters] = useState<Filters>(() => readFilters(window.location.search));
+  const title = useDebouncedValue(filters.title.trim(), SEARCH_DEBOUNCE_MS);
+  const statusKey = filters.statuses.join(",");
+
+  // The server query: title search follows the debounced text, statuses apply at once.
+  const query = useMemo<ApprovalQuery>(
+    () => ({ ...(title ? { title } : {}), ...(statusKey ? { statuses: STATUS_ORDER.filter((s) => statusKey.split(",").includes(s)) } : {}) }),
+    [title, statusKey],
+  );
+
+  // Keep the URL in step with the filters actually applied, so the address can be shared.
+  useEffect(() => {
+    const search = writeFilters(window.location.search, { title, statuses: query.statuses ?? [] });
+    if (search !== window.location.search) window.history.replaceState(window.history.state, "", `${window.location.pathname}${search}${window.location.hash}`);
+  }, [title, query.statuses]);
+
+  const toggleStatus = (status: Filters["statuses"][number], checked: boolean) =>
+    setFilters((f) => ({ ...f, statuses: checked ? [...f.statuses, status] : f.statuses.filter((s) => s !== status) }));
+
+  return (
+    <main className={styles.page}>
+      <h1 className={styles.title}>{t("app.title")}</h1>
+      <div className={styles.filterBar}>
+        <Input
+          type="search"
+          className={styles.search}
+          aria-label={t("filter.search")}
+          placeholder={t("filter.search")}
+          value={filters.title}
+          onChange={(_, data) => setFilters((f) => ({ ...f, title: data.value }))}
+        />
+        <fieldset className={styles.statuses}>
+          <legend style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{t("filter.status")}</legend>
+          {STATUS_ORDER.map((status) => (
+            <Checkbox key={status} label={t(`status.${status}`)} checked={filters.statuses.includes(status)} onChange={(_, data) => toggleStatus(status, data.checked === true)} />
+          ))}
+        </fieldset>
+      </div>
+      {/* Remounted per query: a new filter starts at the top of a fresh list. */}
+      <ApprovalList key={`${title}|${statusKey}`} client={client} lang={lang} query={query} />
+    </main>
+  );
+}
+
+function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang; query: ApprovalQuery }) {
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client, query);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scroll, setScroll] = useState({ top: 0, height: FALLBACK_VIEWPORT_HEIGHT });
 
@@ -150,8 +206,7 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
   const dateFormat = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" }), [lang]);
 
   return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>{t("app.title")}</h1>
+    <>
       {failed && !items ? (
         <p role="alert">{t("list.error")}</p>
       ) : items === null ? (
@@ -190,7 +245,9 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
                     <TableCellLayout truncate>{item.title}</TableCellLayout>
                   </TableCell>
                   <TableCell>
-                    <TableCellLayout truncate>{t(`status.${item.status}`)}</TableCellLayout>
+                    <TableCellLayout truncate>
+                      <StatusBadge status={item.status} outcome={item.outcome} />
+                    </TableCellLayout>
                   </TableCell>
                   <TableCell>
                     <TableCellLayout truncate>{dateFormat.format(new Date(item.createdOn))}</TableCellLayout>
@@ -210,7 +267,7 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
         <DetailPane client={client} approvalId={selectedId} lang={lang} />
         </div>
       )}
-    </main>
+    </>
   );
 }
 

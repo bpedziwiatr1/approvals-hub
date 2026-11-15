@@ -26,5 +26,7 @@
   "detail.stepNamed": "Step {{number}}: {{stage}}",
   "detail.noResponses": "No responses yet",
   "detail.waitingFor": "Waiting for",
-  "detail.reassigned": "Reassigned"
+  "detail.reassigned": "Reassigned",
+  "filter.search": "Search by title",
+  "filter.status": "Status"
 }

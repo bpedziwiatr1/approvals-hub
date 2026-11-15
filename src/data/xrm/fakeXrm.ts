@@ -1,3 +1,4 @@
+import { compileFilter } from "./fakeFilter";
 import { ENTITY_SETS, type ApprovalRow } from "./dataverse";
 import type { Entity, XrmErrorLike, XrmLike } from "./xrmTypes";
 
@@ -50,11 +51,6 @@ function applySelect(row: Entity, select: string | undefined): Entity {
   return Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null]));
 }
 
-function applyFilter(rows: Entity[], filter: string | undefined): Entity[] {
-  const byId = /^msdyn_flow_approvalid eq ([0-9a-f-]+)$/i.exec(filter ?? "");
-  return byId ? rows.filter((r) => String(r.msdyn_flow_approvalid).toLowerCase() === byId[1].toLowerCase()) : rows;
-}
-
 /** Adds each expanded navigation property of the source row, limited to its own $select. */
 function applyExpand(result: Entity, source: Entity, expand: string | undefined): Entity {
   for (const [, nav, select] of (expand ?? "").matchAll(/(\w+)\(\$select=([^)]*)\)/g)) {
@@ -66,7 +62,7 @@ function applyExpand(result: Entity, source: Entity, expand: string | undefined)
 
 /**
  * In-memory Xrm whose WebApi behaves like Dataverse for the queries the hub sends:
- * $select, $orderby, $filter by Approval id, $expand of select-only children, server paging via odata.maxpagesize and @odata.nextLink ($skiptoken).
+ * $select, $filter (see fakeFilter), $expand of select-only children, $orderby, server paging via odata.maxpagesize and @odata.nextLink ($skiptoken).
  * Each request is recorded as it would reach the Web API (entity set, query options, Prefer header).
  */
 export function createFakeXrm(data: FakeXrmData = {}) {
@@ -84,7 +80,8 @@ export function createFakeXrm(data: FakeXrmData = {}) {
         if (data.failWith) throw data.failWith;
 
         const { $skiptoken, ...query } = params;
-        const sorted = applyOrderBy(applyFilter(tables[entityLogicalName] ?? [], query.$filter), query.$orderby);
+        const rows = tables[entityLogicalName] ?? [];
+        const sorted = applyOrderBy(query.$filter ? rows.filter(compileFilter(query.$filter)) : rows, query.$orderby);
         const start = $skiptoken ? Number($skiptoken) : 0;
         const end = maxPageSize ? start + maxPageSize : sorted.length;
         const entities = sorted.slice(start, end).map((row) => applyExpand(applySelect(row, query.$select), row, query.$expand));
