@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/bpedziwiatr1/approvals-hub/compare/approvals-hub-v1.0.0...approvals-hub-v1.0.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **release:** call npm.cmd in build-solution.ps1 ([3745a16](https://github.com/bpedziwiatr1/approvals-hub/commit/3745a160a59a1c387cf63049b66d31c3b957a311))
+* **release:** call npm.cmd in build-solution.ps1, npm.ps1 fails when splatted ([fdaabfe](https://github.com/bpedziwiatr1/approvals-hub/commit/fdaabfef39a12dfbac4e973334bf50d86b3997eb))
+
 ## 1.0.0 (2026-11-15)
 
 
