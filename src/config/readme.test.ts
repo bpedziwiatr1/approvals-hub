@@ -6,7 +6,7 @@ import { resolveProfile } from "./profileConfig";
 // Every ```json block in the README is a whole configuration value; each Profile it names must resolve without notices.
 // Vitest runs from the repository root.
 const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
-const examples = [...readme.matchAll(/```json\n([\s\S]*?)```/g)].map((match) => match[1]);
+const examples = [...readme.matchAll(/```json\r?\n([\s\S]*?)```/g)].map((match) => match[1]);
 
 describe("README configuration examples", () => {
   it("contains configuration examples", () => {
