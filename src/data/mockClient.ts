@@ -1,13 +1,13 @@
 import { DataError, type ApprovalQuery, type DataClient, type StatusCounts } from "./dataClient";
 import { CURRENT_USER_ID, scenarioApprovals, type ScenarioName } from "./scenarios";
-import { mapApprovalListItem } from "./xrm/mappers";
+import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
 
-/** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
 const sameId = (a: string | undefined, b: string) => a?.toLowerCase() === b.toLowerCase();
 const ACTIVE = 0;
 
+/** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
 export function createMockClient(scenario: ScenarioName): DataClient {
   const rows = scenarioApprovals(scenario);
   const all = rows.map((row) => ({ item: mapApprovalListItem({ ...row }), row }));
@@ -40,9 +40,9 @@ export function createMockClient(scenario: ScenarioName): DataClient {
       return counts;
     },
     async getApprovalDetail(approvalId) {
-      const found = all.find(({ item }) => item.id === approvalId)?.item;
-      if (!found) throw new DataError("notFound", `Approval ${approvalId} not found`);
-      return { ...found, details: "" };
+      const row = rows.find((r) => r.msdyn_flow_approvalid === approvalId);
+      if (!row) throw new DataError("notFound", `Approval ${approvalId} not found`);
+      return mapApprovalDetail(row);
     },
     async *exportApprovals(query) {
       yield* matching(query);

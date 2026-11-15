@@ -1,8 +1,9 @@
 import { DataError, type DataClient } from "../dataClient";
 import { APPROVAL } from "./dataverse";
 import { toDataError } from "./errors";
-import { mapApprovalListItem } from "./mappers";
-import { buildListOptions } from "./odataQuery";
+import { mapApprovalDetail, mapApprovalListItem } from "./mappers";
+import { buildDetailOptions, buildListOptions, GUID } from "./odataQuery";
+import type { ApprovalRow } from "./dataverse";
 import { createFetchWebApi, type FetchLike } from "./fetchWebApi";
 import type { GlobalContextLike, RetrieveMultipleResult, XrmLike } from "./xrmTypes";
 
@@ -68,7 +69,12 @@ export function createXrmClient(xrm: XrmLike): DataClient {
       return { items: result.entities.map(mapApprovalListItem), continuationToken: nextPageOptions(result.nextLink) };
     },
     countByStatus: () => notYet("countByStatus"),
-    getApprovalDetail: () => notYet("getApprovalDetail"),
+    async getApprovalDetail(approvalId) {
+      if (!GUID.test(approvalId)) throw new DataError("notFound", `Approval ${approvalId} not found`);
+      const result = await retrieve(APPROVAL.logicalName, buildDetailOptions(approvalId), 1);
+      if (result.entities.length === 0) throw new DataError("notFound", `Approval ${approvalId} not found`);
+      return mapApprovalDetail(result.entities[0] as unknown as ApprovalRow);
+    },
     exportApprovals: () => ({ [Symbol.asyncIterator]: () => ({ next: () => notYet("exportApprovals") }) }),
     getCurrentUser: () => notYet("getCurrentUser"),
     loadConfigValue: () => notYet("loadConfigValue"),
