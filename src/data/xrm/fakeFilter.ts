@@ -25,6 +25,7 @@ export function compileFilter(filter: string): (row: Entity) => boolean {
       return () => text;
     }
     if (/^-?\d+(\.\d+)?$/.test(token)) return () => Number(token);
+    if (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(token)) return () => token;
     return (row) => row[token] ?? null;
   };
 

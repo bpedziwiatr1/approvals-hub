@@ -48,17 +48,23 @@ function applyOrderBy(rows: Entity[], orderby: string | undefined): Entity[] {
   });
 }
 
-function applySelect(row: Entity, select: string | undefined, expand: string | undefined): Entity {
-  const selected = select ? Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null])) : { ...row };
-  // $expand: the navigation property named before any "(" is returned as stored, nested $select ignored.
-  const navigation = expand?.split("(")[0];
-  if (navigation) selected[navigation] = row[navigation] ?? [];
-  return selected;
+function applySelect(row: Entity, select: string | undefined): Entity {
+  if (!select) return { ...row };
+  return Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null]));
+}
+
+/** Adds each expanded navigation property of the source row, limited to its own $select. */
+function applyExpand(result: Entity, source: Entity, expand: string | undefined): Entity {
+  for (const [, nav, select] of (expand ?? "").matchAll(/(\w+)\(\$select=([^)]*)\)/g)) {
+    const children = (source[nav] as Entity[] | undefined) ?? [];
+    result[nav] = children.map((child) => applySelect(child, select));
+  }
+  return result;
 }
 
 /**
  * In-memory Xrm whose WebApi behaves like Dataverse for the queries the hub sends:
- * $select, $filter (see fakeFilter), $orderby, server paging via odata.maxpagesize and @odata.nextLink ($skiptoken).
+ * $select, $filter (see fakeFilter), $expand of select-only children, $orderby, server paging via odata.maxpagesize and @odata.nextLink ($skiptoken).
  * Each request is recorded as it would reach the Web API (entity set, query options, Prefer header).
  */
 export function createFakeXrm(data: FakeXrmData = {}) {
@@ -85,7 +91,7 @@ export function createFakeXrm(data: FakeXrmData = {}) {
         const sorted = applyOrderBy(query.$filter ? rows.filter(compileFilter(query.$filter)) : rows, query.$orderby);
         const start = $skiptoken ? Number($skiptoken) : 0;
         const end = maxPageSize ? start + maxPageSize : sorted.length;
-        const entities = sorted.slice(start, end).map((row) => applySelect(row, query.$select, query.$expand));
+        const entities = sorted.slice(start, end).map((row) => applyExpand(applySelect(row, query.$select), row, query.$expand));
         if (end >= sorted.length) return { entities };
         const next = new URLSearchParams({ ...query, $skiptoken: String(end) });
         return { entities, nextLink: `${BASE_URL}${entitySet}?${next.toString()}` };

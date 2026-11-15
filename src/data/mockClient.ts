@@ -1,7 +1,7 @@
-import { DataError, type ApprovalQuery, type ProfileScope, type DataClient, type StatusCounts } from "./dataClient";
+import { DataError, type ApprovalQuery, type DataClient, type ProfileScope, type StatusCounts } from "./dataClient";
 import { MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
 import type { ApprovalRow } from "./xrm/dataverse";
-import { mapApprovalListItem } from "./xrm/mappers";
+import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
 
@@ -43,9 +43,9 @@ export function createMockClient(scenario: ScenarioName): DataClient {
       return counts;
     },
     async getApprovalDetail(approvalId) {
-      const found = all.find((i) => i.id === approvalId);
-      if (!found) throw new DataError("notFound", `Approval ${approvalId} not found`);
-      return { ...found, details: "" };
+      const row = rows.find((r) => r.msdyn_flow_approvalid === approvalId);
+      if (!row) throw new DataError("notFound", `Approval ${approvalId} not found`);
+      return mapApprovalDetail(row);
     },
     async *exportApprovals(query) {
       yield* matching(query);

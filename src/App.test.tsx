@@ -46,3 +46,80 @@ describe("Approvals list", () => {
     expect(await screen.findByRole("columnheader", { name: /Tytuł/ })).toBeInTheDocument();
   });
 });
+
+describe("Approval detail pane", () => {
+  const openRow = async (client = createMockClient("multiStep"), title = "Contoso budget approval") => {
+    render(<App client={client} lang="en" theme="light" />);
+    const grid = await screen.findByRole("grid");
+    fireEvent.click(within(grid).getByText(title));
+    return screen.findByRole("complementary", { name: "Approval details" });
+  };
+
+  it("shows nothing selected until a row is chosen", async () => {
+    render(<App client={createMockClient("default")} lang="en" theme="light" />);
+    await screen.findByRole("grid");
+    expect(screen.getByText("Select an approval to see its details")).toBeInTheDocument();
+  });
+
+  it("shows the timeline grouped by Approval Step with Approver, response, date and comment", async () => {
+    const pane = await openRow();
+
+    const step1 = within(await within(pane).findByRole("group", { name: "Step 1: Manager" }));
+    expect(step1.getByText("Ann Contoso")).toBeInTheDocument();
+    expect(step1.getByText("Approve")).toBeInTheDocument();
+    expect(step1.getByText("Within budget")).toBeInTheDocument();
+    const expectedDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date("2025-04-02T09:15:00Z"));
+    expect(step1.getByText(expectedDate)).toBeInTheDocument();
+
+    const step2 = within(within(pane).getByRole("group", { name: "Step 2: Finance" }));
+    expect(step2.getByText("Waiting for")).toBeInTheDocument();
+    expect(step2.getByText("Bob Contoso")).toBeInTheDocument();
+    expect(step2.getByText(/Reassigned/)).toBeInTheDocument();
+    expect(step2.getByText("Carol Contoso")).toBeInTheDocument();
+  });
+
+  it("shows the Outcome of a completed Approval, including custom response options", async () => {
+    const pane = await openRow(createMockClient("multiStep"), "Contoso rework request");
+    expect(await within(pane).findByText("Outcome")).toBeInTheDocument();
+    expect(within(pane).getAllByText("Send back").length).toBeGreaterThan(0);
+  });
+
+  it("renders the details as markdown", async () => {
+    const pane = await openRow();
+    expect(await within(pane).findByRole("link", { name: "Budget sheet" })).toHaveAttribute("href", "https://example.com/budget");
+    expect(within(pane).getByRole("table")).toBeInTheDocument();
+  });
+
+  it("does not execute scripts or raw HTML hidden in the details", async () => {
+    const client = createMockClient("default");
+    const detail = await client.getApprovalDetail("00000000-0000-0000-0000-00000000a001");
+    client.getApprovalDetail = async () => ({
+      ...detail,
+      details: 'Hi <script>window.__pwned = 1</script><img src=x onerror="window.__pwned = 2"><b id="raw">bold</b>\n\n[click](javascript:window.__pwned=3)',
+    });
+    render(<App client={client} lang="en" theme="light" />);
+    fireEvent.click(await screen.findByText("Contoso purchase order 1001"));
+    const pane = await screen.findByRole("complementary", { name: "Approval details" });
+    await within(pane).findByText(/Hi/);
+
+    expect(pane.querySelector("script, img, #raw")).toBeNull();
+    expect(pane.querySelector("a[href^='javascript']")).toBeNull();
+    expect((window as unknown as { __pwned?: number }).__pwned).toBeUndefined();
+  });
+
+  it("shows a readable error with Retry when the detail cannot be loaded", async () => {
+    const client = createMockClient("default");
+    let calls = 0;
+    const real = client.getApprovalDetail.bind(client);
+    client.getApprovalDetail = async (id) => {
+      calls += 1;
+      if (calls === 1) throw new Error("boom");
+      return real(id);
+    };
+    render(<App client={client} lang="en" theme="light" />);
+    fireEvent.click(await screen.findByText("Contoso purchase order 1001"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the approval details");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("heading", { name: "Contoso purchase order 1001" })).toBeInTheDocument();
+  });
+});

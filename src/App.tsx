@@ -11,12 +11,14 @@ import {
   TableHeaderCell,
   TableRow,
   makeStyles,
+  mergeClasses,
   tokens,
 } from "@fluentui/react-components";
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { loadProfile, type ColumnId, type ConfigNotice, type ResolvedProfile } from "./config/profileConfig";
 import type { ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
+import { DetailPane } from "./detail/DetailPane";
 import { STATUS_ORDER, readFilters, writeFilters, type Filters } from "./filters/urlState";
 import { StatusBadge } from "./StatusBadge";
 import { useDebouncedValue } from "./useDebouncedValue";
@@ -52,7 +54,9 @@ const useStyles = makeStyles({
   search: { minWidth: "280px" },
   statuses: { display: "flex", flexWrap: "wrap", border: "none", margin: 0, padding: 0 },
   header: { position: "sticky", top: 0, zIndex: 1, backgroundColor: tokens.colorNeutralBackground1 },
-  row: { height: `${ROW_HEIGHT}px` },
+  row: { height: `${ROW_HEIGHT}px`, cursor: "pointer" },
+  selected: { backgroundColor: tokens.colorNeutralBackground1Selected },
+  body: { flex: "1 1 auto", minHeight: 0, display: "flex" },
   more: { padding: tokens.spacingVerticalM },
 });
 
@@ -219,6 +223,7 @@ function ApprovalList({ client, lang, query, profile }: { client: DataClient; la
   const styles = useStyles();
   const { t } = useTranslation();
   const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client, query, profile.pageSize);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scroll, setScroll] = useState({ top: 0, height: FALLBACK_VIEWPORT_HEIGHT });
 
   const count = items?.length ?? 0;
@@ -245,6 +250,7 @@ function ApprovalList({ client, lang, query, profile }: { client: DataClient; la
       ) : items.length === 0 ? (
         <p>{t("list.empty")}</p>
       ) : (
+        <div className={styles.body}>
         <div role="region" aria-label={t("list.region")} className={styles.scroller} onScroll={onScroll}>
           <Table role="grid" aria-label={t("app.title")} aria-rowcount={continuationToken ? -1 : count + 1}>
             <TableHeader className={styles.header}>
@@ -257,7 +263,20 @@ function ApprovalList({ client, lang, query, profile }: { client: DataClient; la
             <TableBody>
               {start > 0 && <Spacer height={start * ROW_HEIGHT} columns={profile.columns.length} />}
               {items.slice(start, end).map((item, i) => (
-                <TableRow key={item.id} className={styles.row} aria-rowindex={start + i + 2}>
+                <TableRow
+                  key={item.id}
+                  className={mergeClasses(styles.row, item.id === selectedId && styles.selected)}
+                  aria-rowindex={start + i + 2}
+                  aria-selected={item.id === selectedId}
+                  tabIndex={0}
+                  onClick={() => setSelectedId(item.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedId(item.id);
+                    }
+                  }}
+                >
                   {profile.columns.map((column) => (
                     <TableCell key={column}>
                       <TableCellLayout truncate>{renderCell(column, item, dateFormat)}</TableCellLayout>
@@ -274,6 +293,8 @@ function ApprovalList({ client, lang, query, profile }: { client: DataClient; la
               {t("list.error")}
             </p>
           )}
+        </div>
+        <DetailPane client={client} approvalId={selectedId} lang={lang} />
         </div>
       )}
     </>
