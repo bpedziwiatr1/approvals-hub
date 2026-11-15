@@ -2,7 +2,7 @@ import { buildApproval, buildRequest, buildResponse, buildStep } from "./factori
 import { APPROVAL_STATUSCODE, REQUEST_STATUSCODE, type ApprovalRequestRow, type ApprovalRow } from "./xrm/dataverse";
 
 /** Local scenarios (`?scenario=`); the same synthetic rows feed mockClient and fakeXrm. */
-export const SCENARIO_NAMES = ["default", "multiStep", "longList", "statuses", "scoped", "currentUserIsApprover", "currentUserNotApprover"] as const;
+export const SCENARIO_NAMES = ["default", "multiStep", "longList", "statuses", "scoped", "currentUserIsApprover", "currentUserNotApprover", "noRegarding"] as const;
 export type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
 export function isScenarioName(value: string | null): value is ScenarioName {
@@ -61,7 +61,7 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
   switch (name) {
     case "default":
       return [
-        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a001", msdyn_flow_approval_title: "Contoso purchase order 1001", msdyn_flow_approval_category: "Purchasing", msdyn_flow_approval_details: "Please approve **purchase order 1001**.", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso")), buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(ANN, "Ann Contoso"), msdyn_flow_approvalresponse_comments: "Fine by me" })], statuscode: APPROVAL_STATUSCODE.pending, createdon: "2025-03-12T08:30:00Z" }),
+        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a001", msdyn_flow_approval_title: "Contoso purchase order 1001", msdyn_flow_approval_category: "Purchasing", msdyn_flow_approval_details: "Please approve **purchase order 1001**.", msdyn_flow_approval_itemlink: "https://contoso.crm.dynamics.com/main.aspx?pagetype=entityrecord&etn=account&id=00000000-0000-0000-0000-0000000000a1", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso")), buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(ANN, "Ann Contoso"), msdyn_flow_approvalresponse_comments: "Fine by me" })], statuscode: APPROVAL_STATUSCODE.pending, createdon: "2025-03-12T08:30:00Z" }),
         buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a002", msdyn_flow_approval_title: "Contoso travel request 2002", msdyn_flow_approval_category: "Travel", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse(who(ANN, "Ann Contoso"))], statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Approve", createdon: "2025-03-10T13:05:00Z" }),
         buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a003", msdyn_flow_approval_title: "Contoso contract renewal 3003", msdyn_flow_approval_category: "Legal", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(BOB, "Bob Contoso"), msdyn_flow_approvalresponse_response: "Reject", msdyn_flow_approvalresponse_comments: "Terms unclear" })], statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Reject", createdon: "2025-03-08T16:45:00Z" }),
       ];
@@ -103,6 +103,21 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
       return assignmentRows(true);
     case "currentUserNotApprover":
       return assignmentRows(false);
+    case "noRegarding":
+      return [
+        buildApproval({
+          msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000c001",
+          msdyn_flow_approval_title: "Contoso approval without a record",
+          msdyn_flow_approval_details: "No record link here, only [a document](https://example.com/doc?id=1).",
+          createdon: "2025-05-01T08:00:00Z",
+        }),
+        buildApproval({
+          msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000c002",
+          msdyn_flow_approval_title: "Contoso approval with a broken record link",
+          msdyn_flow_approval_details: "Record: https://contoso.crm.dynamics.com/main.aspx?etn=account&id=",
+          createdon: "2025-04-30T08:00:00Z",
+        }),
+      ];
     case "statuses": {
       // One Approval per stored state, newest first, including result spellings and the odd title the filters must cope with.
       const states: [string, number, string | null][] = [

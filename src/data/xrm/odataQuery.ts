@@ -111,7 +111,7 @@ export function buildCountOptions(query: ApprovalQuery, currentUserId?: string):
   return `?${params.join("&")}`;
 }
 
-const DETAIL_SELECT = [...LIST_SELECT, APPROVAL.details];
+const DETAIL_SELECT = [...LIST_SELECT, APPROVAL.details, APPROVAL.itemLink];
 
 const DETAIL_EXPAND = [
   [APPROVAL_NAV.requests, ["_ownerid_value", "msdyn_flow_approvalrequest_stepnumber", "statuscode"]],

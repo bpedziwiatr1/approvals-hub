@@ -19,6 +19,7 @@ export interface GlobalContextLike {
 
 export interface XrmLike {
   WebApi: WebApiLike;
+  Navigation?: { openForm(options: { entityName: string; entityId: string }): Promise<unknown> };
   Utility?: { getGlobalContext(): GlobalContextLike };
 }
 

@@ -13,6 +13,7 @@ export const APPROVAL = {
   owner: "_ownerid_value",
   requests: "msdyn_flow_approvalrelationship_approvalrequests",
   details: "msdyn_flow_approval_details",
+  itemLink: "msdyn_flow_approval_itemlink",
 } as const;
 
 /** Approval Request `statecode`: 0 is active (still waiting for the Approver). */
@@ -49,6 +50,7 @@ export interface ApprovalRow {
   /** The Owner (flow connection user). */
   _ownerid_value?: string;
   msdyn_flow_approval_details?: string | null;
+  msdyn_flow_approval_itemlink?: string | null;
   msdyn_flow_approvalrelationship_approvalrequests?: ApprovalRequestRow[];
   msdyn_flow_approvalrelationship_approvalresponses?: ApprovalResponseRow[];
   msdyn_flow_approvalrelationship_approvalsteps?: ApprovalStepRow[];
