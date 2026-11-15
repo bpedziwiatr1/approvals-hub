@@ -8,7 +8,12 @@ export const APPROVAL = {
   result: "msdyn_flow_approval_result",
   statuscode: "statuscode",
   createdOn: "createdon",
+  owner: "_ownerid_value",
+  requests: "msdyn_flow_approvalrelationship_approvalrequests",
 } as const;
+
+/** Approval Request `statecode`: 0 is active (still waiting for the Approver). */
+export const REQUEST_STATECODE_ACTIVE = 0;
 
 /** Entity sets by logical name, for transports that address the Web API by URL. */
 export const ENTITY_SETS: Record<string, string> = {
@@ -36,4 +41,14 @@ export interface ApprovalRow {
   msdyn_flow_approval_result: string | null;
   statuscode: number;
   createdon: string;
+  /** The Owner (flow connection user). */
+  _ownerid_value?: string;
+  /** Expanded Approval Requests; only the fields the filters use. */
+  msdyn_flow_approvalrelationship_approvalrequests?: ApprovalRequestRow[];
+}
+
+/** One msdyn_flow_approvalrequest row: `_ownerid_value` is the Approver. */
+export interface ApprovalRequestRow {
+  _ownerid_value: string;
+  statecode: number;
 }

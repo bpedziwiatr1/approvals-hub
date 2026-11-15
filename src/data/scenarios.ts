@@ -2,7 +2,7 @@ import { buildApproval } from "./factories";
 import { APPROVAL_STATUSCODE, type ApprovalRow } from "./xrm/dataverse";
 
 /** Local scenarios (`?scenario=`); the same synthetic rows feed mockClient and fakeXrm. */
-export const SCENARIO_NAMES = ["default", "longList", "statuses"] as const;
+export const SCENARIO_NAMES = ["default", "longList", "statuses", "currentUserIsApprover", "currentUserNotApprover"] as const;
 export type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
 export function isScenarioName(value: string | null): value is ScenarioName {
@@ -18,6 +18,37 @@ const LONG_LIST_STATES: Pick<ApprovalRow, "statuscode" | "msdyn_flow_approval_re
   { statuscode: APPROVAL_STATUSCODE.cancelled, msdyn_flow_approval_result: null },
 ];
 
+/** The signed-in user of mockClient and fakeXrm. */
+export const CURRENT_USER_ID = "00000000-0000-0000-0000-0000000000f1";
+
+const OWNER_1 = "00000000-0000-0000-0000-000000000e01";
+const OWNER_2 = "00000000-0000-0000-0000-000000000e02";
+const OTHER_APPROVER = "00000000-0000-0000-0000-0000000000b1";
+const ACTIVE = 0;
+const INACTIVE = 1;
+
+/** Four Approvals with owners and Approval Requests; `me` is the Approver on the first two, or nobody when the current user has none. */
+function assignmentRows(currentUserIsApprover: boolean): ApprovalRow[] {
+  const me = currentUserIsApprover ? CURRENT_USER_ID : "00000000-0000-0000-0000-0000000000c1";
+  const rows: [string, number, string | null, string, string, ApprovalRow["msdyn_flow_approvalrelationship_approvalrequests"]][] = [
+    ["Alpha mine pending", APPROVAL_STATUSCODE.pending, null, "2025-05-03T12:00:00Z", OWNER_1, [{ _ownerid_value: me, statecode: ACTIVE }]],
+    ["Beta mine decided", APPROVAL_STATUSCODE.completed, "Approve", "2025-05-02T00:00:00Z", OWNER_2, [{ _ownerid_value: me, statecode: INACTIVE }, { _ownerid_value: OTHER_APPROVER, statecode: INACTIVE }]],
+    ["Gamma others pending", APPROVAL_STATUSCODE.pending, null, "2025-05-01T23:59:59Z", OWNER_1, [{ _ownerid_value: OTHER_APPROVER, statecode: ACTIVE }]],
+    ["Delta others completed", APPROVAL_STATUSCODE.completed, "Reject", "2025-04-30T12:00:00Z", OWNER_2, [{ _ownerid_value: "00000000-0000-0000-0000-0000000000c2", statecode: INACTIVE }]],
+  ];
+  return (currentUserIsApprover ? rows : rows.slice(0, 2)).map(([title, statuscode, result, createdon, owner, requests], i) =>
+    buildApproval({
+      msdyn_flow_approvalid: `00000000-0000-0000-0003-${String(i + 1).padStart(12, "0")}`,
+      msdyn_flow_approval_title: title,
+      statuscode,
+      msdyn_flow_approval_result: result,
+      createdon,
+      _ownerid_value: owner,
+      msdyn_flow_approvalrelationship_approvalrequests: requests,
+    }),
+  );
+}
+
 /** Approval rows of a scenario, newest first. */
 export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
   switch (name) {
@@ -27,6 +58,10 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
         buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a002", msdyn_flow_approval_title: "Contoso travel request 2002", statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Approve", createdon: "2025-03-10T13:05:00Z" }),
         buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a003", msdyn_flow_approval_title: "Contoso contract renewal 3003", statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Reject", createdon: "2025-03-08T16:45:00Z" }),
       ];
+    case "currentUserIsApprover":
+      return assignmentRows(true);
+    case "currentUserNotApprover":
+      return assignmentRows(false);
     case "statuses": {
       // One Approval per stored state, newest first, including result spellings and the odd title the filters must cope with.
       const states: [string, number, string | null][] = [

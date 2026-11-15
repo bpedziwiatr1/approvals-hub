@@ -16,5 +16,11 @@
   "list.region": "Lista zatwierdzeń",
   "list.loadingMore": "Ładowanie kolejnych zatwierdzeń",
   "filter.search": "Szukaj po tytule",
-  "filter.status": "Status"
+  "filter.status": "Status",
+  "filter.owner": "Właściciel (ID użytkownika)",
+  "filter.approver": "Zatwierdzający (ID użytkownika)",
+  "filter.createdFrom": "Utworzono od",
+  "filter.createdTo": "Utworzono do",
+  "filter.assignedToMe": "Przypisane do mnie",
+  "filter.pendingOnly": "Tylko oczekujące"
 }

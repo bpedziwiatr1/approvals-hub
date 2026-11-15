@@ -48,6 +48,61 @@ describe("buildFilter", () => {
   });
 });
 
+const ME = "00000000-0000-0000-0000-0000000000f1";
+const OTHER = "00000000-0000-0000-0000-0000000000b1";
+const REQUESTS = "msdyn_flow_approvalrelationship_approvalrequests";
+
+describe("buildFilter: Owner, Approver, Assigned to me and dates", () => {
+  it("matches the Owner on the owner lookup", () => {
+    expect(buildFilter({ ownerId: OTHER })).toBe(`_ownerid_value eq ${OTHER}`);
+  });
+
+  it("matches the Approver with any() over the Approval Requests", () => {
+    expect(buildFilter({ approverId: OTHER })).toBe(`${REQUESTS}/any(r:r/_ownerid_value eq ${OTHER})`);
+  });
+
+  it("matches Assigned to me with any() for the current user", () => {
+    expect(buildFilter({ assignedToMe: { pendingOnly: false } }, ME)).toBe(`${REQUESTS}/any(r:r/_ownerid_value eq ${ME})`);
+  });
+
+  it("adds the active state of the request when Assigned to me is pending only", () => {
+    expect(buildFilter({ assignedToMe: { pendingOnly: true } }, ME)).toBe(`${REQUESTS}/any(r:r/_ownerid_value eq ${ME} and r/statecode eq 0)`);
+  });
+
+  it("needs the current user for Assigned to me", () => {
+    expect(() => buildFilter({ assignedToMe: { pendingOnly: false } })).toThrow(/current user/i);
+  });
+
+  it("accepts a GUID with braces and capitals", () => {
+    expect(buildFilter({ ownerId: "{00000000-0000-0000-0000-0000000000B1}" })).toBe(`_ownerid_value eq ${OTHER}`);
+  });
+
+  it("rejects an id that is not a GUID, so nothing is injected into the filter", () => {
+    expect(() => buildFilter({ ownerId: "x or 1 eq 1" })).toThrow(/guid/i);
+    expect(() => buildFilter({ approverId: "x)" })).toThrow(/guid/i);
+  });
+
+  it("sends the date range as ISO UTC, both ends inclusive", () => {
+    expect(buildFilter({ createdFrom: "2025-05-02T00:00:00Z", createdTo: "2025-05-02T23:59:59.999Z" })).toBe(
+      "createdon ge 2025-05-02T00:00:00.000Z and createdon le 2025-05-02T23:59:59.999Z",
+    );
+  });
+
+  it("normalises an offset date to UTC", () => {
+    expect(buildFilter({ createdFrom: "2025-05-02T02:00:00+02:00" })).toBe("createdon ge 2025-05-02T00:00:00.000Z");
+  });
+
+  it("rejects an unparsable date", () => {
+    expect(() => buildFilter({ createdTo: "tomorrow-ish" })).toThrow(/date/i);
+  });
+
+  it("ANDs every filter", () => {
+    expect(buildFilter({ title: "x", ownerId: OTHER, createdFrom: "2025-01-01T00:00:00Z" })).toBe(
+      `contains(msdyn_flow_approval_title,'x') and _ownerid_value eq ${OTHER} and createdon ge 2025-01-01T00:00:00.000Z`,
+    );
+  });
+});
+
 describe("buildListOptions", () => {
   it("adds the filter, URL-encoded, to the list options", () => {
     const options = buildListOptions({ title: "a&b+c'd" });

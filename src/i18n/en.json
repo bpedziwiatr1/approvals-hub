@@ -16,5 +16,11 @@
   "list.region": "Approvals list",
   "list.loadingMore": "Loading more approvals",
   "filter.search": "Search by title",
-  "filter.status": "Status"
+  "filter.status": "Status",
+  "filter.owner": "Owner (user ID)",
+  "filter.approver": "Approver (user ID)",
+  "filter.createdFrom": "Created from",
+  "filter.createdTo": "Created to",
+  "filter.assignedToMe": "Assigned to me",
+  "filter.pendingOnly": "Pending only"
 }

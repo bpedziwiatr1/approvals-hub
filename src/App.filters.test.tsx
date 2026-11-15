@@ -104,3 +104,119 @@ describe("Filters in the URL", () => {
     await waitFor(() => expect(window.location.search).toBe("?scenario=default&status=pending"));
   });
 });
+
+describe("Assigned to me", () => {
+  it("lists the Approvals where the current user has an Approval Request (currentUserIsApprover)", async () => {
+    const user = userEvent.setup();
+    const client = createMockClient("currentUserIsApprover");
+    const listApprovals = vi.spyOn(client, "listApprovals");
+    render(<App client={client} lang="en" theme="light" />);
+    const grid = await screen.findByRole("grid");
+    expect(within(grid).getAllByRole("row")).toHaveLength(5);
+
+    await user.click(screen.getByRole("checkbox", { name: "Assigned to me" }));
+
+    await waitFor(() => expect(listApprovals).toHaveBeenLastCalledWith({ assignedToMe: { pendingOnly: false } }, { size: 100 }));
+    await waitFor(() => expect(within(screen.getByRole("grid")).getAllByRole("row")).toHaveLength(3));
+    expect(within(screen.getByRole("grid")).getByText("Alpha mine pending")).toBeInTheDocument();
+    expect(within(screen.getByRole("grid")).getByText("Beta mine decided")).toBeInTheDocument();
+  });
+
+  it("narrows to requests still waiting for a response with Pending only", async () => {
+    const user = userEvent.setup();
+    const client = createMockClient("currentUserIsApprover");
+    const listApprovals = vi.spyOn(client, "listApprovals");
+    render(<App client={client} lang="en" theme="light" />);
+    await screen.findByRole("grid");
+    expect(screen.getByRole("checkbox", { name: "Pending only" })).toBeDisabled();
+
+    await user.click(screen.getByRole("checkbox", { name: "Assigned to me" }));
+    await user.click(screen.getByRole("checkbox", { name: "Pending only" }));
+
+    await waitFor(() => expect(listApprovals).toHaveBeenLastCalledWith({ assignedToMe: { pendingOnly: true } }, { size: 100 }));
+    await waitFor(() => expect(within(screen.getByRole("grid")).getAllByRole("row")).toHaveLength(2));
+    expect(within(screen.getByRole("grid")).getByText("Alpha mine pending")).toBeInTheDocument();
+  });
+
+  it("shows no results when the current user has no Approval Request (currentUserNotApprover)", async () => {
+    const user = userEvent.setup();
+    render(<App client={createMockClient("currentUserNotApprover")} lang="en" theme="light" />);
+    await screen.findByRole("grid");
+
+    await user.click(screen.getByRole("checkbox", { name: "Assigned to me" }));
+
+    expect(await screen.findByText("No approvals found")).toBeInTheDocument();
+  });
+});
+
+describe("Owner, Approver and created-on range", () => {
+  const OWNER = "00000000-0000-0000-0000-000000000e01";
+  const APPROVER = "00000000-0000-0000-0000-0000000000b1";
+
+  it("filters by Owner once a valid user id is entered", async () => {
+    const user = userEvent.setup();
+    const client = createMockClient("currentUserIsApprover");
+    const listApprovals = vi.spyOn(client, "listApprovals");
+    render(<App client={client} lang="en" theme="light" />);
+    await screen.findByRole("grid");
+
+    await user.type(screen.getByRole("textbox", { name: "Owner (user ID)" }), OWNER.slice(0, 20));
+    expect(listApprovals).toHaveBeenCalledTimes(1);
+    await user.type(screen.getByRole("textbox", { name: "Owner (user ID)" }), OWNER.slice(20));
+
+    await waitFor(() => expect(listApprovals).toHaveBeenLastCalledWith({ ownerId: OWNER }, { size: 100 }));
+    await waitFor(() => expect(within(screen.getByRole("grid")).getAllByRole("row")).toHaveLength(3));
+  });
+
+  it("filters by Approver", async () => {
+    const user = userEvent.setup();
+    const client = createMockClient("currentUserIsApprover");
+    const listApprovals = vi.spyOn(client, "listApprovals");
+    render(<App client={client} lang="en" theme="light" />);
+    await screen.findByRole("grid");
+
+    await user.type(screen.getByRole("textbox", { name: "Approver (user ID)" }), APPROVER);
+
+    await waitFor(() => expect(listApprovals).toHaveBeenLastCalledWith({ approverId: APPROVER }, { size: 100 }));
+    await waitFor(() => expect(within(screen.getByRole("grid")).getAllByRole("row")).toHaveLength(3));
+  });
+
+  it("sends the chosen days as inclusive ISO UTC boundaries", async () => {
+    const user = userEvent.setup();
+    const client = createMockClient("currentUserIsApprover");
+    const listApprovals = vi.spyOn(client, "listApprovals");
+    render(<App client={client} lang="en" theme="light" />);
+    await screen.findByRole("grid");
+
+    await user.type(screen.getByLabelText("Created from"), "2025-05-02");
+    await user.type(screen.getByLabelText("Created to"), "2025-05-02");
+
+    await waitFor(() =>
+      expect(listApprovals).toHaveBeenLastCalledWith({ createdFrom: "2025-05-02T00:00:00.000Z", createdTo: "2025-05-02T23:59:59.999Z" }, { size: 100 }),
+    );
+    await waitFor(() => expect(within(screen.getByRole("grid")).getAllByRole("row")).toHaveLength(2));
+    expect(within(screen.getByRole("grid")).getByText("Beta mine decided")).toBeInTheDocument();
+  });
+
+  it("restores every filter from the URL and writes them back", async () => {
+    setUrl(`?owner=${OWNER}&approver=${APPROVER}&from=2025-05-01&to=2025-05-31&mine=pending&scenario=currentUserIsApprover`);
+    const client = createMockClient("currentUserIsApprover");
+    const listApprovals = vi.spyOn(client, "listApprovals");
+    render(<App client={client} lang="en" theme="light" />);
+
+    await waitFor(() => expect(listApprovals).toHaveBeenCalled());
+    expect(listApprovals.mock.calls[0][0]).toEqual({
+      ownerId: OWNER,
+      approverId: APPROVER,
+      createdFrom: "2025-05-01T00:00:00.000Z",
+      createdTo: "2025-05-31T23:59:59.999Z",
+      assignedToMe: { pendingOnly: true },
+    });
+    expect(screen.getByRole("textbox", { name: "Owner (user ID)" })).toHaveValue(OWNER);
+    expect(screen.getByLabelText("Created from")).toHaveValue("2025-05-01");
+    expect(screen.getByRole("checkbox", { name: "Assigned to me" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Pending only" })).toBeChecked();
+    await waitFor(() => expect(window.location.search).toContain(`owner=${OWNER}`));
+    expect(window.location.search).toContain("mine=pending");
+  });
+});

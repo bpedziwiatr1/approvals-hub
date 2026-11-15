@@ -1,18 +1,31 @@
 import { DataError, type ApprovalQuery, type DataClient, type StatusCounts } from "./dataClient";
-import { scenarioApprovals, type ScenarioName } from "./scenarios";
+import { CURRENT_USER_ID, scenarioApprovals, type ScenarioName } from "./scenarios";
 import { mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
 
 /** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
+const sameId = (a: string | undefined, b: string) => a?.toLowerCase() === b.toLowerCase();
+const ACTIVE = 0;
+
 export function createMockClient(scenario: ScenarioName): DataClient {
-  const all = scenarioApprovals(scenario).map((row) => mapApprovalListItem({ ...row }));
+  const rows = scenarioApprovals(scenario);
+  const all = rows.map((row) => ({ item: mapApprovalListItem({ ...row }), row }));
+  const hasRequest = (row: (typeof rows)[number], userId: string, activeOnly: boolean) =>
+    (row.msdyn_flow_approvalrelationship_approvalrequests ?? []).some((r) => sameId(r._ownerid_value, userId) && (!activeOnly || r.statecode === ACTIVE));
   const matching = (query: ApprovalQuery) =>
-    all.filter(
-      (i) =>
-        (!query.title || i.title.toLowerCase().includes(query.title.toLowerCase())) &&
-        (!query.statuses?.length || query.statuses.includes(i.status)),
-    );
+    all
+      .filter(
+        ({ item: i, row }) =>
+          (!query.title || i.title.toLowerCase().includes(query.title.toLowerCase())) &&
+          (!query.statuses?.length || query.statuses.includes(i.status)) &&
+          (!query.ownerId || sameId(row._ownerid_value, query.ownerId)) &&
+          (!query.approverId || hasRequest(row, query.approverId, false)) &&
+          (!query.assignedToMe || hasRequest(row, CURRENT_USER_ID, query.assignedToMe.pendingOnly)) &&
+          (!query.createdFrom || Date.parse(i.createdOn) >= Date.parse(query.createdFrom)) &&
+          (!query.createdTo || Date.parse(i.createdOn) <= Date.parse(query.createdTo)),
+      )
+      .map(({ item }) => item);
 
   return {
     async listApprovals(query, page) {
@@ -27,7 +40,7 @@ export function createMockClient(scenario: ScenarioName): DataClient {
       return counts;
     },
     async getApprovalDetail(approvalId) {
-      const found = all.find((i) => i.id === approvalId);
+      const found = all.find(({ item }) => item.id === approvalId)?.item;
       if (!found) throw new DataError("notFound", `Approval ${approvalId} not found`);
       return { ...found, details: "" };
     },
@@ -35,7 +48,7 @@ export function createMockClient(scenario: ScenarioName): DataClient {
       yield* matching(query);
     },
     async getCurrentUser() {
-      return { id: "00000000-0000-0000-0000-0000000000f1", name: "Alex Contoso", languageId: 1033 };
+      return { id: CURRENT_USER_ID, name: "Alex Contoso", languageId: 1033 };
     },
     async loadConfigValue() {
       return null;
