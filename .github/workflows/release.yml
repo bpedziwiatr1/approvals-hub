@@ -50,3 +50,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
         run: gh release upload "$TAG" out/ApprovalsHub_*_managed.zip out/ApprovalsHub_*_unmanaged.zip --clobber
+
+  # Gitflow: the version bump and changelog land on main, so open the pull request that carries them back to develop.
+  back-merge:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Open the pull request main into develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          gh pr create --repo "$GITHUB_REPOSITORY" --base develop --head main \
+            --title "chore: merge $TAG back into develop" \
+            --body "Brings the version bump and changelog of $TAG back to develop. Merge with a merge commit."
