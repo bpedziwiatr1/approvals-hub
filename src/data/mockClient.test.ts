@@ -33,3 +33,18 @@ describe("mockClient longList scenario", () => {
     expect(isScenarioName("nope")).toBe(false);
   });
 });
+
+describe("mockClient multiStep scenario", () => {
+  it("demonstrates a multi-stage Approval through getApprovalDetail", async () => {
+    const client = createMockClient("multiStep");
+    const page = await client.listApprovals({}, { size: 50 });
+    const budget = page.items.find((i) => i.title === "Contoso budget approval")!;
+    const detail = await client.getApprovalDetail(budget.id);
+    expect(detail.steps.map((s) => s.number)).toEqual([1, 2]);
+    expect(detail.steps[1].pendingApprovers.length).toBeGreaterThan(0);
+  });
+
+  it("rejects an unknown Approval with a notFound error", async () => {
+    await expect(createMockClient("default").getApprovalDetail("00000000-0000-0000-0000-00000000ffff")).rejects.toMatchObject({ kind: "notFound" });
+  });
+});

@@ -1,12 +1,13 @@
 import { DataError, type ApprovalQuery, type DataClient, type StatusCounts } from "./dataClient";
 import { scenarioApprovals, type ScenarioName } from "./scenarios";
-import { mapApprovalListItem } from "./xrm/mappers";
+import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
 
 /** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
 export function createMockClient(scenario: ScenarioName): DataClient {
-  const all = scenarioApprovals(scenario).map((row) => mapApprovalListItem({ ...row }));
+  const rows = scenarioApprovals(scenario);
+  const all = rows.map((row) => mapApprovalListItem({ ...row }));
   const matching = (query: ApprovalQuery) =>
     all.filter(
       (i) =>
@@ -27,9 +28,9 @@ export function createMockClient(scenario: ScenarioName): DataClient {
       return counts;
     },
     async getApprovalDetail(approvalId) {
-      const found = all.find((i) => i.id === approvalId);
-      if (!found) throw new DataError("notFound", `Approval ${approvalId} not found`);
-      return { ...found, details: "" };
+      const row = rows.find((r) => r.msdyn_flow_approvalid === approvalId);
+      if (!row) throw new DataError("notFound", `Approval ${approvalId} not found`);
+      return mapApprovalDetail(row);
     },
     async *exportApprovals(query) {
       yield* matching(query);

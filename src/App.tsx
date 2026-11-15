@@ -9,11 +9,13 @@ import {
   TableHeaderCell,
   TableRow,
   makeStyles,
+  mergeClasses,
   tokens,
 } from "@fluentui/react-components";
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import type { ApprovalListItem, DataClient } from "./data/dataClient";
+import { DetailPane } from "./detail/DetailPane";
 import { visibleRange } from "./grid/virtualRange";
 import { createI18n, type Lang } from "./i18n";
 import { fluentTheme, type ThemeName } from "./theme";
@@ -44,7 +46,9 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusMedium,
   },
   header: { position: "sticky", top: 0, zIndex: 1, backgroundColor: tokens.colorNeutralBackground1 },
-  row: { height: `${ROW_HEIGHT}px` },
+  row: { height: `${ROW_HEIGHT}px`, cursor: "pointer" },
+  selected: { backgroundColor: tokens.colorNeutralBackground1Selected },
+  body: { flex: "1 1 auto", minHeight: 0, display: "flex" },
   more: { padding: tokens.spacingVerticalM },
 });
 
@@ -127,6 +131,7 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
   const styles = useStyles();
   const { t } = useTranslation();
   const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scroll, setScroll] = useState({ top: 0, height: FALLBACK_VIEWPORT_HEIGHT });
 
   const count = items?.length ?? 0;
@@ -154,6 +159,7 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
       ) : items.length === 0 ? (
         <p>{t("list.empty")}</p>
       ) : (
+        <div className={styles.body}>
         <div role="region" aria-label={t("list.region")} className={styles.scroller} onScroll={onScroll}>
           <Table role="grid" aria-label={t("app.title")} aria-rowcount={continuationToken ? -1 : count + 1}>
             <TableHeader className={styles.header}>
@@ -166,7 +172,20 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
             <TableBody>
               {start > 0 && <Spacer height={start * ROW_HEIGHT} />}
               {items.slice(start, end).map((item, i) => (
-                <TableRow key={item.id} className={styles.row} aria-rowindex={start + i + 2}>
+                <TableRow
+                  key={item.id}
+                  className={mergeClasses(styles.row, item.id === selectedId && styles.selected)}
+                  aria-rowindex={start + i + 2}
+                  aria-selected={item.id === selectedId}
+                  tabIndex={0}
+                  onClick={() => setSelectedId(item.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedId(item.id);
+                    }
+                  }}
+                >
                   <TableCell>
                     <TableCellLayout truncate>{item.title}</TableCellLayout>
                   </TableCell>
@@ -187,6 +206,8 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
               {t("list.error")}
             </p>
           )}
+        </div>
+        <DetailPane client={client} approvalId={selectedId} lang={lang} />
         </div>
       )}
     </main>

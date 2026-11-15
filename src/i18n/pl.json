@@ -14,5 +14,17 @@
   "list.empty": "Brak zatwierdzeń",
   "list.error": "Nie udało się załadować zatwierdzeń",
   "list.region": "Lista zatwierdzeń",
-  "list.loadingMore": "Ładowanie kolejnych zatwierdzeń"
+  "list.loadingMore": "Ładowanie kolejnych zatwierdzeń",
+  "detail.region": "Szczegóły zatwierdzenia",
+  "detail.none": "Wybierz zatwierdzenie, aby zobaczyć szczegóły",
+  "detail.loading": "Ładowanie szczegółów",
+  "detail.error": "Nie można wczytać szczegółów zatwierdzenia",
+  "detail.retry": "Ponów",
+  "detail.outcome": "Wynik",
+  "detail.responses": "Odpowiedzi",
+  "detail.step": "Krok {{number}}",
+  "detail.stepNamed": "Krok {{number}}: {{stage}}",
+  "detail.noResponses": "Brak odpowiedzi",
+  "detail.waitingFor": "Oczekiwanie na",
+  "detail.reassigned": "Przekazane dalej"
 }
