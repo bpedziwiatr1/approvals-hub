@@ -14,6 +14,6 @@ foreach ($kind in 'managed', 'unmanaged') {
   $name = (& node scripts/solution.mjs name $kind)
   if ($LASTEXITCODE -ne 0) { throw 'solution.mjs name failed' }
   $type = (Get-Culture).TextInfo.ToTitleCase($kind)
-  Invoke-Native pac solution pack --zipfile "out/$name" --folder $staged --packagetype $type --errorlevel Warning
+  Invoke-Native pac solution pack --zipfile "out/$name" --folder $staged --packagetype $type --useUnmanagedFileForMissingManaged --errorlevel Warning
   Write-Host "Packed out/$name"
 }

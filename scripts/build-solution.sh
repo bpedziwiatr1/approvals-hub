@@ -10,6 +10,6 @@ staged="$(node scripts/solution.mjs stage)"
 mkdir -p out
 for kind in managed unmanaged; do
   name="$(node scripts/solution.mjs name "$kind")"
-  pac solution pack --zipfile "out/$name" --folder "$staged" --packagetype "$(printf '%s' "$kind" | sed 's/^./\U&/')" --errorlevel Warning
+  pac solution pack --zipfile "out/$name" --folder "$staged" --packagetype "$(printf '%s' "$kind" | sed 's/^./\U&/')" --useUnmanagedFileForMissingManaged --errorlevel Warning
   echo "Packed out/$name"
 done
