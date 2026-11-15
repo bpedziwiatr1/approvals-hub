@@ -1,45 +1,56 @@
-import type { ApprovalDetail, ApprovalListItem, ApprovalResponse, ApprovalStatus, ApprovalStepDetail, Approver } from "../dataClient";
+import type { ApprovalDetail, ApprovalListItem, LastDecision, ApprovalResponse, ApprovalStatus, ApprovalStepDetail, Approver } from "../dataClient";
 import { resolveRegarding } from "../regarding";
-import { APPROVAL, APPROVAL_STATUSCODE, REQUEST_STATUSCODE, type ApprovalRequestRow, type ApprovalResponseRow, type ApprovalRow, type ApprovalStepRow } from "./dataverse";
+import { DISPLAY_STATUSES } from "../displayStatus";
+import { APPROVAL, REQUEST_STATUSCODE, type ApprovalRequestRow, type ApprovalResponseRow, type ApprovalRow, type ApprovalStepRow } from "./dataverse";
 import type { Entity } from "./xrmTypes";
-
-const APPROVED = new Set(["approve", "approved"]);
-const REJECTED = new Set(["reject", "rejected"]);
 
 /**
  * Display status from the stored statuscode and result text. Created and Suspended show as Pending;
  * an unknown statuscode also shows as Pending so the Approval stays visible.
  */
 export function deriveStatus(statuscode: number, result: string | null): { status: ApprovalStatus; outcome: string | null } {
-  switch (statuscode) {
-    case APPROVAL_STATUSCODE.completed: {
-      const normalised = result?.trim().toLowerCase() ?? "";
-      if (APPROVED.has(normalised)) return { status: "approved", outcome: null };
-      if (REJECTED.has(normalised)) return { status: "rejected", outcome: null };
-      return { status: "completed", outcome: result?.trim() || null };
-    }
-    case APPROVAL_STATUSCODE.expired:
-      return { status: "expired", outcome: null };
-    case APPROVAL_STATUSCODE.cancelled:
-      return { status: "cancelled", outcome: null };
-    case APPROVAL_STATUSCODE.abandoned:
-      return { status: "abandoned", outcome: null };
-    default:
-      return { status: "pending", outcome: null };
-  }
+  const covering = DISPLAY_STATUSES.filter((s) => s.statuscodes.includes(statuscode));
+  if (covering.length === 0) return { status: "pending", outcome: null };
+  const normalised = result?.trim().toLowerCase() ?? "";
+  const entry =
+    covering.find((s) => Array.isArray(s.results) && s.results.some((r) => r.toLowerCase() === normalised)) ??
+    covering.find((s) => s.results === "other" || s.results === undefined);
+  const status = entry?.status ?? "pending";
+  return { status, outcome: status === "completed" ? result?.trim() || null : null };
 }
 
-const text = (value: unknown): string | null => (typeof value === "string" ? value : null);
+const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null);
+
+const FORMATTED = "@OData.Community.Display.V1.FormattedValue";
+
+/** The user a lookup column points at, named by its formatted value (their id when the name is not annotated). */
+function userOf(row: Entity, column: string): Approver | null {
+  const id = stringOrNull(row[column]);
+  return id ? { id, name: stringOrNull(row[`${column}${FORMATTED}`]) || id } : null;
+}
+
+/** The latest of the expanded Approval Responses, which is the last decision on the Approval. */
+function lastDecisionOf(row: Entity): LastDecision | null {
+  const responses = (row[APPROVAL.responses] as Entity[] | undefined) ?? [];
+  const latest = responses.reduce<Entity | null>((best, r) => (best === null || Date.parse(String(r.createdon)) > Date.parse(String(best.createdon)) ? r : best), null);
+  const approver = latest && userOf(latest, "_ownerid_value");
+  if (!latest || !approver) return null;
+  return { approver, response: stringOrNull(latest.msdyn_flow_approvalresponse_response) ?? "", decidedOn: new Date(String(latest.createdon)).toISOString() };
+}
 
 /** One msdyn_flow_approval row (list columns) to an Approval list item. */
 export function mapApprovalListItem(row: Entity): ApprovalListItem {
-  const { status, outcome } = deriveStatus(Number(row[APPROVAL.statuscode]), text(row[APPROVAL.result]));
+  const { status, outcome } = deriveStatus(Number(row[APPROVAL.statuscode]), stringOrNull(row[APPROVAL.result]));
+  const step = row[APPROVAL.currentStep];
   return {
     id: String(row[APPROVAL.id]),
-    title: text(row[APPROVAL.title]) ?? "",
+    title: stringOrNull(row[APPROVAL.title]) ?? "",
     status,
     outcome,
     createdOn: String(row[APPROVAL.createdOn]),
+    owner: userOf(row, APPROVAL.owner),
+    currentStep: typeof step === "number" ? step : null,
+    lastDecision: lastDecisionOf(row),
   };
 }
 

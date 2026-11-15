@@ -1,8 +1,9 @@
 import { Button, Spinner, Tooltip, makeStyles, tokens } from "@fluentui/react-components";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useUserTime } from "../time/userTimeContext";
 import type { ApprovalDetail, ApprovalStepDetail, DataClient, RecordRef } from "../data/dataClient";
 
 const useStyles = makeStyles({
@@ -44,14 +45,14 @@ interface Loaded {
  * Details of one Approval: markdown details (react-markdown renders no raw HTML and drops unsafe URLs),
  * Approval Responses grouped by Approval Step, pending and reassigned Approvers, and the Outcome.
  */
-export function DetailPane({ client, approvalId, lang, layout = "side" }: { client: DataClient; approvalId: string | null; lang: string; layout?: "side" | "drawer" }) {
+export function DetailPane({ client, approvalId, layout = "side" }: { client: DataClient; approvalId: string | null; layout?: "side" | "drawer" }) {
   const styles = useStyles();
   const { t } = useTranslation();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [attempt, setAttempt] = useState(0);
   const key = `${approvalId}#${attempt}`;
   const state = loaded?.key === key ? loaded.outcome : null;
-  const dateFormat = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" }), [lang]);
+  const { format } = useUserTime();
 
   useEffect(() => {
     if (!approvalId) return;
@@ -77,7 +78,7 @@ export function DetailPane({ client, approvalId, lang, layout = "side" }: { clie
           <Button onClick={() => setAttempt((n) => n + 1)}>{t("detail.retry")}</Button>
         </div>
       ) : (
-        <Ready client={client} detail={state.detail} format={(iso) => dateFormat.format(new Date(iso))} />
+        <Ready client={client} detail={state.detail} format={format} />
       )}
     </aside>
   );

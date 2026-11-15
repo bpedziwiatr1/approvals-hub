@@ -1,12 +1,12 @@
 import { z } from "zod";
 import type { ApprovalStatus, DataClient, ProfileScope } from "../data/dataClient";
+import { DISPLAY_STATUS_ORDER } from "../data/displayStatus";
 
 export const CONFIG_SCHEMA_NAME = "bpt_ApprovalsHubConfig";
 
-export const COLUMNS = ["title", "status", "createdOn"] as const;
+export const COLUMNS = ["title", "status", "createdOn", "owner", "currentStep", "lastDecision"] as const;
 export type ColumnId = (typeof COLUMNS)[number];
 
-const STATUSES = ["pending", "approved", "rejected", "completed", "cancelled", "expired", "abandoned"] as const satisfies readonly ApprovalStatus[];
 
 const scopeSchema = z.strictObject({
   title: z.strictObject({ mode: z.enum(["equals", "startsWith", "contains"]), value: z.string().min(1) }).optional(),
@@ -19,7 +19,7 @@ const profileSchema = z.strictObject({
   pageTitle: z.string().min(1).optional(),
   scope: scopeSchema.optional(),
   pageSize: z.number().int().min(1).max(500).optional(),
-  defaultStatus: z.enum(STATUSES).nullable().optional(),
+  defaultStatus: z.enum(DISPLAY_STATUS_ORDER as [ApprovalStatus, ...ApprovalStatus[]]).nullable().optional(),
   columns: z.array(z.enum(COLUMNS)).min(1).optional(),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "must look like #0f6cbd").nullable().optional(),
 });
@@ -50,7 +50,7 @@ const builtInProfile = (): ResolvedProfile => ({
   pageTitle: null,
   columns: [...COLUMNS],
   pageSize: 100,
-  defaultStatus: null,
+  defaultStatus: "pending",
   accentColor: null,
   scope: {},
 });

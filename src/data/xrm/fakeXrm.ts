@@ -13,10 +13,14 @@ export interface FakeXrmData {
   approvals?: ApprovalRow[];
   /** Environment variable definitions; `currentValue` is the environment's own value row, if any. */
   environmentVariables?: { schemaName: string; defaultValue?: string; currentValue?: string }[];
+  /** The signed-in user; `timeZoneOffsetMinutes` is added to UTC to get their local time. */
+  user?: { id: string; name: string; languageId: number; timeZoneOffsetMinutes: number };
   /** Every request rejects with this error (e.g. a 403 privilege error). */
   failWith?: XrmErrorLike;
 }
 
+const FORMATTED = "@OData.Community.Display.V1.FormattedValue";
+const AGGREGATE_LIMIT = 50_000;
 const BASE_URL = "https://contoso.crm.dynamics.com/api/data/v9.2/";
 
 function parseOptions(options: string | undefined): Record<string, string> {
@@ -30,7 +34,8 @@ function compare(a: unknown, b: unknown): number {
   if (a === b) return 0;
   if (a === null || a === undefined) return -1;
   if (b === null || b === undefined) return 1;
-  return (a as string | number) < (b as string | number) ? -1 : 1;
+  const [x, y] = typeof a === "string" && typeof b === "string" ? [a.toLowerCase(), b.toLowerCase()] : [a as number, b as number];
+  return x === y ? 0 : x < y ? -1 : 1;
 }
 
 function applyOrderBy(rows: Entity[], orderby: string | undefined): Entity[] {
@@ -50,7 +55,32 @@ function applyOrderBy(rows: Entity[], orderby: string | undefined): Entity[] {
 
 function applySelect(row: Entity, select: string | undefined): Entity {
   if (!select) return { ...row };
-  return Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null]));
+  // Like Dataverse, a selected lookup brings its formatted value (the display name) along.
+  return Object.fromEntries(
+    select.split(",").flatMap((f) => [[f, row[f] ?? null], ...(`${f}${FORMATTED}` in row ? [[`${f}${FORMATTED}`, row[`${f}${FORMATTED}`]]] : [])]),
+  );
+}
+
+/**
+ * `$apply=[filter(<$filter>)/]groupby((a,b),aggregate($count as alias))`: one row per distinct (a, b) with the number of rows in it.
+ * Like Dataverse, an aggregate answers in one page and refuses to aggregate more than 50 000 rows.
+ */
+function applyAggregate(rows: Entity[], apply: string): Entity[] {
+  const match = /^(?:filter\((.*)\)\/)?groupby\(\(([^)]*)\),aggregate\(\$count as (\w+)\)\)$/.exec(apply);
+  if (!match) throw new Error(`Unsupported $apply: ${apply}`);
+  const [, filter, columns, alias] = match;
+  const matching = filter ? rows.filter(compileFilter(filter)) : rows;
+  if (matching.length > AGGREGATE_LIMIT) throw { status: 400, message: `The maximum record limit of ${AGGREGATE_LIMIT} for aggregate operations is exceeded.` } satisfies XrmErrorLike;
+  const fields = columns.split(",");
+  const groups = new Map<string, Entity>();
+  for (const row of matching) {
+    const group = Object.fromEntries(fields.map((f) => [f, row[f] ?? null]));
+    const key = JSON.stringify(group);
+    const existing = groups.get(key);
+    if (existing) (existing[alias] as number) += 1;
+    else groups.set(key, { ...group, [alias]: 1 });
+  }
+  return [...groups.values()];
 }
 
 /** Adds each expanded navigation property of the source row, limited to its own $select. */
@@ -68,6 +98,7 @@ function applyExpand(result: Entity, source: Entity, expand: string | undefined)
  * Each request is recorded as it would reach the Web API (entity set, query options, Prefer header).
  */
 export function createFakeXrm(data: FakeXrmData = {}) {
+  const user = data.user ?? { id: "{00000000-0000-0000-0000-0000000000F1}", name: "Alex Contoso", languageId: 1033, timeZoneOffsetMinutes: 0 };
   const requests: RecordedRequest[] = [];
   const openedForms: { entityName: string; entityId: string }[] = [];
   const tables: Record<string, Entity[]> = {
@@ -89,6 +120,7 @@ export function createFakeXrm(data: FakeXrmData = {}) {
 
         const { $skiptoken, ...query } = params;
         const rows = tables[entityLogicalName] ?? [];
+        if (query.$apply) return { entities: applyAggregate(rows, query.$apply) };
         const sorted = applyOrderBy(query.$filter ? rows.filter(compileFilter(query.$filter)) : rows, query.$orderby);
         const start = $skiptoken ? Number($skiptoken) : 0;
         const end = maxPageSize ? start + maxPageSize : sorted.length;
@@ -106,7 +138,12 @@ export function createFakeXrm(data: FakeXrmData = {}) {
     Utility: {
       getGlobalContext: () => ({
         getClientUrl: () => "https://contoso.crm.dynamics.com",
-        userSettings: { userId: "{00000000-0000-0000-0000-0000000000F1}", userName: "Alex Contoso", languageId: 1033 },
+        userSettings: {
+          userId: user.id,
+          userName: user.name,
+          languageId: user.languageId,
+          getTimeZoneOffsetMinutes: () => user.timeZoneOffsetMinutes,
+        },
       }),
     },
   };

@@ -9,9 +9,24 @@ export interface ApprovalListItem {
   outcome: string | null;
   /** ISO 8601, UTC. */
   createdOn: string;
+  /** The Owner (flow connection user); null when the row carries none. */
+  owner: Approver | null;
+  /** Number of the Approval Step the Approval is at; null for a single-stage Approval. */
+  currentStep: number | null;
+  /** The latest Approval Response; null while nobody has answered. */
+  lastDecision: LastDecision | null;
 }
 
-export type SortField = "title" | "status" | "createdOn";
+export interface LastDecision {
+  approver: Approver;
+  /** The response option as stored. */
+  response: string;
+  /** ISO 8601, UTC. */
+  decidedOn: string;
+}
+
+/** Columns the server can sort by; the last decision is derived from child rows and cannot be. */
+export type SortField = "title" | "status" | "createdOn" | "owner" | "currentStep";
 
 export type TitleMatchMode = "equals" | "startsWith" | "contains";
 
@@ -87,6 +102,8 @@ export interface CurrentUser {
   id: string;
   name: string;
   languageId: number;
+  /** Minutes to add to UTC to get the user's local time (their Dataverse time zone). */
+  timeZoneOffsetMinutes: number;
 }
 
 export interface RecordRef {

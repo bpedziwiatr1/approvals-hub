@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppModuleSiteMap xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SiteMapUniqueName>bpt_ApprovalsHub</SiteMapUniqueName>
+  <SiteMap IntroducedVersion="1.0.0.0">
+    <Area Id="area_approvalshub" ShowGroups="true" IntroducedVersion="1.0.0.0">
+      <Titles>
+        <Title LCID="1033" Title="Approvals Hub" />
+      </Titles>
+      <Group Id="group_approvalshub" IntroducedVersion="1.0.0.0">
+        <Titles>
+          <Title LCID="1033" Title="Approvals" />
+        </Titles>
+        <SubArea Id="subarea_approvalshub" Url="$webresource:bpt_/approvalshub/index.html?data=profile%3Ddefault" Icon="$webresource:bpt_/approvalshub/icon.svg" Client="All" PassParams="false" AvailableOffline="false" IntroducedVersion="1.0.0.0">
+          <Titles>
+            <Title LCID="1033" Title="Approvals Hub" />
+          </Titles>
+        </SubArea>
+      </Group>
+    </Area>
+  </SiteMap>
+  <IsManaged>0</IsManaged>
+</AppModuleSiteMap>

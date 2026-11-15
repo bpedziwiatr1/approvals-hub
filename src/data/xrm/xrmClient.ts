@@ -1,8 +1,8 @@
 import { DataError, emptyStatusCounts, type DataClient } from "../dataClient";
 import { APPROVAL, ENVIRONMENT_VARIABLE as ENV_VAR } from "./dataverse";
 import { toDataError } from "./errors";
-import { mapApprovalDetail, mapApprovalListItem } from "./mappers";
-import { buildCountOptions, buildDetailOptions, buildListOptions, GUID } from "./odataQuery";
+import { deriveStatus, mapApprovalDetail, mapApprovalListItem } from "./mappers";
+import { buildCountOptions, buildDetailOptions, buildListOptions, COUNT_ALIAS, GUID } from "./odataQuery";
 import type { ApprovalRow } from "./dataverse";
 import { createFetchWebApi, type FetchLike } from "./fetchWebApi";
 import type { Entity, GlobalContextLike, RetrieveMultipleResult, XrmLike } from "./xrmTypes";
@@ -46,11 +46,9 @@ function nextPageOptions(nextLink: string | undefined): string | null {
 /** Largest page Dataverse returns; counts and exports read every matching row in pages of this size. */
 const MAX_PAGE_SIZE = 5000;
 
-const notYet = (what: string) => Promise.reject(new DataError("server", `${what} is not available yet`));
-
 /** DataClient backed by the model-driven app's Xrm.WebApi, running as the signed-in user. */
 export function createXrmClient(xrm: XrmLike): DataClient {
-  const retrieve = async (logicalName: string, options: string, pageSize: number): Promise<RetrieveMultipleResult> => {
+  const retrieve = async (logicalName: string, options: string, pageSize?: number): Promise<RetrieveMultipleResult> => {
     try {
       return await xrm.WebApi.retrieveMultipleRecords(logicalName, options, pageSize);
     } catch (error) {
@@ -83,7 +81,8 @@ export function createXrmClient(xrm: XrmLike): DataClient {
     },
     async countByStatus(query) {
       const counts = emptyStatusCounts();
-      for await (const row of everyRow(buildCountOptions(query, query.assignedToMe ? currentUserId() : undefined))) counts[mapApprovalListItem(row).status] += 1;
+      const groups = await retrieve(APPROVAL.logicalName, buildCountOptions(query, query.assignedToMe ? currentUserId() : undefined));
+      for (const group of groups.entities) counts[deriveStatus(Number(group[APPROVAL.statuscode]), (group[APPROVAL.result] as string | null) ?? null).status] += Number(group[COUNT_ALIAS]);
       return counts;
     },
     async getApprovalDetail(approvalId) {
@@ -95,7 +94,16 @@ export function createXrmClient(xrm: XrmLike): DataClient {
     async *exportApprovals(query) {
       for await (const row of everyRow(buildListOptions(query, query.assignedToMe ? currentUserId() : undefined))) yield mapApprovalListItem(row);
     },
-    getCurrentUser: () => notYet("getCurrentUser"),
+    async getCurrentUser() {
+      const settings = xrm.Utility?.getGlobalContext().userSettings;
+      if (!settings) throw new DataError("server", "The current user is not available");
+      return {
+        id: settings.userId.replace(/[{}]/g, "").toLowerCase(),
+        name: settings.userName,
+        languageId: settings.languageId,
+        timeZoneOffsetMinutes: settings.getTimeZoneOffsetMinutes(),
+      };
+    },
     async loadConfigValue(schemaName) {
       const filter = `${ENV_VAR.schemaName} eq '${schemaName.replace(/'/g, "''")}'`;
       const expand = `${ENV_VAR.valuesNavigation}($select=value)`;

@@ -1,8 +1,12 @@
 {
   "app.title": "Centrum zatwierdzeń",
+  "list.selectRow": "Zaznacz: {{title}}",
   "list.column.title": "Tytuł",
   "list.column.status": "Status",
   "list.column.createdOn": "Data utworzenia",
+  "list.column.owner": "Właściciel",
+  "list.column.currentStep": "Bieżący etap",
+  "list.column.lastDecision": "Ostatnia decyzja",
   "status.pending": "Oczekuje",
   "status.approved": "Zatwierdzone",
   "status.rejected": "Odrzucone",

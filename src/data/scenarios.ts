@@ -52,6 +52,7 @@ function assignmentRows(currentUserIsApprover: boolean): ApprovalRow[] {
 const ANN = "00000000-0000-0000-0000-0000000000c1";
 const BOB = "00000000-0000-0000-0000-0000000000c2";
 const CAROL = "00000000-0000-0000-0000-0000000000c3";
+const OLGA = "00000000-0000-0000-0000-0000000000e1";
 const DAVE = "00000000-0000-0000-0000-0000000000c4";
 const NAME = "_ownerid_value@OData.Community.Display.V1.FormattedValue" as const;
 const who = (id: string, name: string) => ({ _ownerid_value: id, [NAME]: name });
@@ -75,6 +76,8 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
         buildApproval({
           msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000b001",
           msdyn_flow_approval_title: "Contoso budget approval",
+          ...who(OLGA, "Olga Contoso"),
+          msdyn_flow_approval_currentstepnumber: 2,
           msdyn_flow_approval_details: "Budget for Q3.\n\n[Budget sheet](https://example.com/budget)\n\n| Item | Amount |\n| --- | --- |\n| Licences | 1200 |",
           statuscode: APPROVAL_STATUSCODE.pending,
           createdon: "2025-04-01T08:00:00Z",
@@ -94,6 +97,7 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
         buildApproval({
           msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000b002",
           msdyn_flow_approval_title: "Contoso rework request",
+          msdyn_flow_approval_currentstepnumber: 1,
           msdyn_flow_approval_details: "Needs a second look.",
           statuscode: APPROVAL_STATUSCODE.completed,
           msdyn_flow_approval_result: "Send back",
@@ -188,8 +192,8 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
 /** Profile configuration served by mockClient and the fakeXrm environment variable, for `?profile=` locally. */
 export const MOCK_CONFIG_JSON = JSON.stringify({
   profiles: {
-    default: {},
-    purchasing: { pageTitle: "Purchasing approvals", pageSize: 50, accentColor: "#107c10", scope: { category: "Purchasing" } },
+    default: { defaultStatus: null },
+    purchasing: { pageTitle: "Purchasing approvals", pageSize: 50, defaultStatus: null, accentColor: "#107c10", scope: { category: "Purchasing" } },
     travel: { extends: "purchasing", pageTitle: "Travel approvals", accentColor: "#8e562e", defaultStatus: "approved", scope: { category: "Travel" } },
   },
 });

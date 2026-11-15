@@ -1,4 +1,5 @@
 import type { StatusCounts } from "./dataClient";
+import { DISPLAY_STATUSES } from "./displayStatus";
 
 export interface SummaryTiles {
   pending: number;
@@ -10,10 +11,7 @@ export interface SummaryTiles {
 
 /** The four summary tiles from per-status counts. */
 export function toTiles(counts: StatusCounts): SummaryTiles {
-  return {
-    pending: counts.pending,
-    approved: counts.approved,
-    rejected: counts.rejected,
-    other: counts.completed + counts.cancelled + counts.expired + counts.abandoned,
-  };
+  const tiles: SummaryTiles = { pending: 0, approved: 0, rejected: 0, other: 0 };
+  for (const { status, tile } of DISPLAY_STATUSES) tiles[tile] += counts[status];
+  return tiles;
 }

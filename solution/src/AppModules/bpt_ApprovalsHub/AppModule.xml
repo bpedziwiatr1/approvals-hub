@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AppModule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <AppModuleId>{00000000-0000-0000-0000-0000000000a1}</AppModuleId>
   <UniqueName>bpt_ApprovalsHub</UniqueName>
   <IntroducedVersion>1.0.0.0</IntroducedVersion>
   <IsDefault>0</IsDefault>

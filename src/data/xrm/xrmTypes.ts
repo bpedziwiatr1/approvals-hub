@@ -14,7 +14,7 @@ export interface WebApiLike {
 
 export interface GlobalContextLike {
   getClientUrl(): string;
-  userSettings: { userId: string; userName: string; languageId: number };
+  userSettings: { userId: string; userName: string; languageId: number; getTimeZoneOffsetMinutes(): number };
 }
 
 export interface XrmLike {

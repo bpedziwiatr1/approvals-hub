@@ -1,4 +1,5 @@
 import type { ApprovalStatus } from "../data/dataClient";
+import { DISPLAY_STATUS_ORDER, isDisplayStatus } from "../data/displayStatus";
 
 /** What the user can change in the filter bar; the only filter state that lives in the URL. */
 export interface Filters {
@@ -14,9 +15,9 @@ export interface Filters {
   assignedToMe?: { pendingOnly: boolean };
 }
 
-export const STATUS_ORDER: readonly ApprovalStatus[] = ["pending", "approved", "rejected", "completed", "cancelled", "expired", "abandoned"];
+export const STATUS_ORDER = DISPLAY_STATUS_ORDER;
 
-const isStatus = (value: string): value is ApprovalStatus => (STATUS_ORDER as readonly string[]).includes(value);
+const isStatus = isDisplayStatus;
 
 const GUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const DAY = /^\d{4}-\d\d-\d\d$/;

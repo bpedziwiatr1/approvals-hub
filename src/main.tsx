@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { selectClient } from "./data/selectClient";
 import type { HostWindow } from "./data/xrm/xrmClient";
-import { resolveLang } from "./i18n";
+import { langFromSearch } from "./i18n";
 import { resolveTheme } from "./theme";
 
 const { client, openedRecords } = selectClient(window.location.search, window as unknown as HostWindow);
@@ -14,6 +14,6 @@ if (openedRecords) (window as unknown as { __openedRecords: () => unknown }).__o
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App client={client} lang={resolveLang(window.location.search)} theme={theme} />
+    <App client={client} lang={langFromSearch(window.location.search) ?? undefined} theme={theme} />
   </StrictMode>,
 );

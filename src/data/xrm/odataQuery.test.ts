@@ -110,6 +110,22 @@ describe("buildListOptions", () => {
     expect(params.get("$filter")).toBe("contains(msdyn_flow_approval_title,'a&b+c''d')");
     expect(params.get("$orderby")).toBe("createdon desc");
   });
+
+  it("selects the list columns, including Owner and current step, and expands the responses for the last decision", () => {
+    const params = new URLSearchParams(buildListOptions({}).slice(1));
+    expect(params.get("$select")).toBe("msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon,_ownerid_value,msdyn_flow_approval_currentstepnumber");
+    expect(params.get("$expand")).toBe("msdyn_flow_approvalrelationship_approvalresponses($select=_ownerid_value,msdyn_flow_approvalresponse_response,createdon)");
+  });
+
+  it.each([
+    ["title", false, "msdyn_flow_approval_title asc,createdon desc"],
+    ["status", true, "statuscode desc,createdon desc"],
+    ["owner", false, "_ownerid_value asc,createdon desc"],
+    ["currentStep", true, "msdyn_flow_approval_currentstepnumber desc,createdon desc"],
+    ["createdOn", false, "createdon asc"],
+  ] as const)("sorts by %s (descending: %s) with created on as the tie-breaker", (field, descending, orderby) => {
+    expect(new URLSearchParams(buildListOptions({ sort: { field, descending } }).slice(1)).get("$orderby")).toBe(orderby);
+  });
 });
 
 describe("buildFilter Profile Scope", () => {

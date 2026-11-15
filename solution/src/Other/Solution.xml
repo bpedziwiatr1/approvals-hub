@@ -92,7 +92,8 @@
       <RootComponent type="61" schemaName="bpt_/approvalshub/index.html" behavior="0" />
       <RootComponent type="61" schemaName="bpt_/approvalshub/icon.svg" behavior="0" />
       <RootComponent type="380" schemaName="bpt_ApprovalsHubConfig" behavior="0" />
-      <RootComponent type="80" id="{00000000-0000-0000-0000-0000000000a1}" behavior="0" />
+      <RootComponent type="62" schemaName="bpt_ApprovalsHub" behavior="0" />
+      <RootComponent type="80" schemaName="bpt_ApprovalsHub" behavior="0" />
     </RootComponents>
     <MissingDependencies />
   </SolutionManifest>

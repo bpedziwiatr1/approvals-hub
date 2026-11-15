@@ -1,12 +1,18 @@
 import type { ApprovalQuery, ApprovalStatus, ProfileScope, SortField } from "../dataClient";
-import { APPROVAL, APPROVAL_NAV, APPROVAL_STATUSCODE, REQUEST_STATECODE_ACTIVE } from "./dataverse";
+import { APPROVE_RESULTS, DISPLAY_STATUSES, REJECT_RESULTS } from "../displayStatus";
+import { APPROVAL, APPROVAL_NAV, REQUEST_STATECODE_ACTIVE } from "./dataverse";
 
-const LIST_SELECT = [APPROVAL.id, APPROVAL.title, APPROVAL.result, APPROVAL.statuscode, APPROVAL.createdOn];
+const LIST_SELECT = [APPROVAL.id, APPROVAL.title, APPROVAL.result, APPROVAL.statuscode, APPROVAL.createdOn, APPROVAL.owner, APPROVAL.currentStep];
+
+/** The responses of each Approval, for the last decision shown in the list. */
+const LIST_EXPAND = `${APPROVAL_NAV.responses}($select=_ownerid_value,msdyn_flow_approvalresponse_response,createdon)`;
 
 const SORT_COLUMNS: Record<SortField, string> = {
   title: APPROVAL.title,
   status: APPROVAL.statuscode,
   createdOn: APPROVAL.createdOn,
+  owner: APPROVAL.owner,
+  currentStep: APPROVAL.currentStep,
 };
 
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
@@ -16,29 +22,18 @@ const resultIsNot = (value: string) => `${APPROVAL.result} ne ${literal(value)}`
 const anyOf = (conditions: string[]) => `(${conditions.join(" or ")})`;
 
 /**
- * Condition for one display status (unparenthesised; `and` binds tighter than the `or` joining statuses); the inverse of deriveStatus. String comparisons rely on
- * Dataverse's case-insensitive collation, so `Approve`, `approve` and `Approved` all match.
+ * Condition for one display status (unparenthesised; `and` binds tighter than the `or` joining statuses); the inverse of deriveStatus,
+ * built from the same DISPLAY_STATUSES table. String comparisons rely on Dataverse's case-insensitive collation, so `Approve`, `approve` and `Approved` all match.
  */
 function statusCondition(status: ApprovalStatus): string {
-  const { completed } = APPROVAL_STATUSCODE;
-  switch (status) {
-    case "pending":
-      return [APPROVAL_STATUSCODE.created, APPROVAL_STATUSCODE.pending, APPROVAL_STATUSCODE.suspended].map(statusIs).join(" or ");
-    case "approved":
-      return `${statusIs(completed)} and ${anyOf([resultIs("Approve"), resultIs("Approved")])}`;
-    case "rejected":
-      return `${statusIs(completed)} and ${anyOf([resultIs("Reject"), resultIs("Rejected")])}`;
-    case "completed": {
-      const neither = ["Approve", "Approved", "Reject", "Rejected"].map(resultIsNot).join(" and ");
-      return `${statusIs(completed)} and (${APPROVAL.result} eq null or (${neither}))`;
-    }
-    case "cancelled":
-      return statusIs(APPROVAL_STATUSCODE.cancelled);
-    case "expired":
-      return statusIs(APPROVAL_STATUSCODE.expired);
-    case "abandoned":
-      return statusIs(APPROVAL_STATUSCODE.abandoned);
+  const entry = DISPLAY_STATUSES.find((s) => s.status === status)!;
+  const codes = entry.statuscodes.map(statusIs).join(" or ");
+  if (entry.results === undefined) return codes;
+  if (entry.results === "other") {
+    const neither = [...APPROVE_RESULTS, ...REJECT_RESULTS].map(resultIsNot).join(" and ");
+    return `${codes} and (${APPROVAL.result} eq null or (${neither}))`;
   }
+  return `${codes} and ${anyOf(entry.results.map(resultIs))}`;
 }
 
 /** GUIDs go into the filter unquoted, so anything else is refused rather than escaped. */
@@ -97,18 +92,23 @@ export function buildListOptions(query: ApprovalQuery, currentUserId?: string): 
   const filter = buildFilter(query, currentUserId);
   const params = [`$select=${LIST_SELECT.join(",")}`];
   if (filter) params.push(`$filter=${encodeURIComponent(filter)}`);
-  params.push(`$orderby=${SORT_COLUMNS[sort.field]} ${sort.descending ? "desc" : "asc"}`);
+  // Created on, newest first, breaks ties so that paging stays stable.
+  const order = [`${SORT_COLUMNS[sort.field]} ${sort.descending ? "desc" : "asc"}`, ...(sort.field === "createdOn" ? [] : [`${APPROVAL.createdOn} desc`])];
+  params.push(`$expand=${LIST_EXPAND}`, `$orderby=${order.join(",")}`);
   return `?${params.join("&")}`;
 }
 
-const COUNT_SELECT = [APPROVAL.statuscode, APPROVAL.result];
+/** Alias of the row count in the rows `buildCountOptions` asks for. */
+export const COUNT_ALIAS = "count";
 
-/** Query options for counting the Approvals that match the list query: the same $filter, only the columns that decide the status, no sort. */
+/**
+ * Query options for counting the Approvals that match the list query, in one request: the same filter, grouped by the two columns that decide
+ * the display status, with the number of Approvals per group. No rows are paged; the caller maps each group to its status.
+ */
 export function buildCountOptions(query: ApprovalQuery, currentUserId?: string): string {
   const filter = buildFilter(query, currentUserId);
-  const params = [`$select=${COUNT_SELECT.join(",")}`];
-  if (filter) params.push(`$filter=${encodeURIComponent(filter)}`);
-  return `?${params.join("&")}`;
+  const groups = `groupby((${APPROVAL.statuscode},${APPROVAL.result}),aggregate($count as ${COUNT_ALIAS}))`;
+  return `?$apply=${encodeURIComponent(filter ? `filter(${filter})/${groups}` : groups)}`;
 }
 
 const DETAIL_SELECT = [...LIST_SELECT, APPROVAL.details, APPROVAL.itemLink];

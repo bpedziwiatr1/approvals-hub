@@ -1,4 +1,4 @@
-import { DataError, type ApprovalQuery, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
+import { DataError, emptyStatusCounts, type ApprovalQuery, type SortField, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
 import { CURRENT_USER_ID, MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
 import type { ApprovalRow } from "./xrm/dataverse";
 import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
@@ -31,8 +31,25 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       (!scope.tags || (row.msdyn_flow_approval_tags ?? "").toLowerCase().includes(scope.tags.toLowerCase()))
     );
   };
+  // Sort keys as the server orders them: title, stored status code, created on, owner id, current step (no step first).
+  const sortKey = ({ item, row }: (typeof all)[number], field: SortField): string | number =>
+    ({
+      title: item.title.toLowerCase(),
+      status: row.statuscode,
+      createdOn: Date.parse(item.createdOn),
+      owner: row._ownerid_value ?? "",
+      currentStep: row.msdyn_flow_approval_currentstepnumber ?? -1,
+    })[field];
+  const sorted = (entries: typeof all, sort: ApprovalQuery["sort"]) => {
+    if (!sort) return entries;
+    const sign = sort.descending ? -1 : 1;
+    return [...entries].sort((a, b) => {
+      const [x, y] = [sortKey(a, sort.field), sortKey(b, sort.field)];
+      return x === y ? Date.parse(b.item.createdOn) - Date.parse(a.item.createdOn) : (x < y ? -1 : 1) * sign;
+    });
+  };
   const matching = (query: ApprovalQuery) =>
-    all
+    sorted(all, query.sort)
       .filter(
         ({ item: i, row }) =>
           inScope(row, query.scope) &&
@@ -64,7 +81,7 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       return { items: items.slice(start, end), continuationToken: end < items.length ? String(end) : null };
     },
     async countByStatus(query) {
-      const counts: StatusCounts = { pending: 0, approved: 0, rejected: 0, completed: 0, cancelled: 0, expired: 0, abandoned: 0 };
+      const counts: StatusCounts = emptyStatusCounts();
       for (const i of matching(query)) counts[i.status] += 1;
       return counts;
     },
@@ -77,7 +94,7 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       yield* matching(query);
     },
     async getCurrentUser() {
-      return { id: CURRENT_USER_ID, name: "Alex Contoso", languageId: 1033 };
+      return { id: CURRENT_USER_ID, name: "Alex Contoso", languageId: 1033, timeZoneOffsetMinutes: 0 };
     },
     async loadConfigValue() {
       return MOCK_CONFIG_JSON;

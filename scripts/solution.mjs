@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Helpers for the unpacked Dataverse solution in solution/ (used by build-solution.ps1/.sh and the tests).
 //   node scripts/solution.mjs check   fails unless the solution version equals the package.json version
-//   node scripts/solution.mjs stage   copies dist/index.html into the solution's web resource
+//   node scripts/solution.mjs stage   copies the solution sources to out/staging and puts dist/index.html into the copy
 //   node scripts/solution.mjs name <managed|unmanaged>   prints the release artifact file name
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,12 +29,21 @@ export function rootComponentTypes(solutionXml) {
   return new Set([...solutionXml.matchAll(/<RootComponent\b[^>]*\btype="(\d+)"/g)].map((m) => Number(m[1])));
 }
 
-export function stagePage({ distHtml = "dist/index.html", solutionDir = SOLUTION_DIR } = {}) {
+export const STAGING_DIR = "out/staging";
+
+/**
+ * Copies the tracked solution sources into a staging folder and puts the built page into the copy,
+ * so a build never changes tracked files. Returns the staged folder to pack from.
+ */
+export function stagePage({ distHtml = "dist/index.html", solutionDir = SOLUTION_DIR, stagingDir = STAGING_DIR } = {}) {
   if (!existsSync(distHtml)) throw new Error(`${distHtml} not found; run "npm run build" first.`);
-  const target = join(solutionDir, WEB_RESOURCE_PATH);
+  rmSync(stagingDir, { recursive: true, force: true });
+  const staged = join(stagingDir, "src");
+  cpSync(join(solutionDir, "src"), staged, { recursive: true });
+  const target = join(stagingDir, WEB_RESOURCE_PATH);
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(distHtml, target);
-  return target;
+  return staged;
 }
 
 function main(command, arg) {
@@ -44,7 +53,7 @@ function main(command, arg) {
     if (fromSolution !== fromPackage) throw new Error(`Solution version ${fromSolution} differs from package.json version ${fromPackage}.`);
     console.log(`Solution version ${fromSolution} matches package.json.`);
   } else if (command === "stage") {
-    console.log(`Copied the page to ${stagePage()}`);
+    console.log(stagePage());
   } else if (command === "name") {
     if (arg !== "managed" && arg !== "unmanaged") throw new Error("Usage: solution.mjs name <managed|unmanaged>");
     console.log(artifactName(packageVersion(readFileSync("package.json", "utf8")), arg));

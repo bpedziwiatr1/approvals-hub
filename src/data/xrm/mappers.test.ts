@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildApproval, buildRequest, buildResponse, buildStep } from "../factories";
-import { deriveStatus, mapApprovalDetail } from "./mappers";
+import type { ApprovalRow } from "./dataverse";
+import { deriveStatus, mapApprovalDetail, mapApprovalListItem } from "./mappers";
+import type { Entity } from "./xrmTypes";
 
 describe("deriveStatus", () => {
   it.each([
@@ -143,5 +145,32 @@ describe("mapApprovalDetail", () => {
       }),
     );
     expect(detail.steps[0].responses.map((r) => r.respondedOn)).toEqual(["2025-03-01T09:00:00.000Z", "2025-03-01T10:00:00.000Z"]);
+  });
+});
+
+describe("mapApprovalListItem columns", () => {
+  const U1 = "00000000-0000-0000-0000-0000000000e1";
+
+  it("maps the Owner, current Approval Step and the latest Approval Response as the last decision", () => {
+    const item = mapApprovalListItem(
+      buildApproval({
+        _ownerid_value: U1,
+        [FV]: "Olga Contoso",
+        msdyn_flow_approval_currentstepnumber: 3,
+        msdyn_flow_approvalrelationship_approvalresponses: [
+          buildResponse({ _ownerid_value: A2, [FV]: "Bob Contoso", msdyn_flow_approvalresponse_response: "Reject", createdon: "2025-02-02T10:00:00Z" }),
+          buildResponse({ _ownerid_value: A1, [FV]: "Ann Contoso", msdyn_flow_approvalresponse_response: "Approve", createdon: "2025-02-03T11:00:00Z" }),
+          buildResponse({ _ownerid_value: A3, msdyn_flow_approvalresponse_response: "Approve", createdon: "2025-02-01T09:00:00Z" }),
+        ],
+      } as Partial<ApprovalRow>) as unknown as Entity,
+    );
+    expect(item.owner).toEqual({ id: U1, name: "Olga Contoso" });
+    expect(item.currentStep).toBe(3);
+    expect(item.lastDecision).toEqual({ approver: { id: A1, name: "Ann Contoso" }, response: "Approve", decidedOn: "2025-02-03T11:00:00.000Z" });
+  });
+
+  it("falls back to the user id for a name that is not annotated, and to null when there is nothing to show", () => {
+    expect(mapApprovalListItem({ ...buildApproval(), _ownerid_value: U1 } as unknown as Entity).owner).toEqual({ id: U1, name: U1 });
+    expect(mapApprovalListItem(buildApproval() as unknown as Entity)).toMatchObject({ owner: null, currentStep: null, lastDecision: null });
   });
 });
