@@ -76,3 +76,18 @@ for (const theme of ["light", "dark"]) {
     expect(violations).toEqual([]);
   });
 }
+
+test("opens the Regarding Record with the keyboard alone and the button passes axe", async ({ page }) => {
+  await page.goto("/?scenario=default&lang=en");
+  await page.getByRole("row", { name: /purchase order 1001/ }).focus();
+  await page.keyboard.press("Enter");
+  const button = page.getByRole("button", { name: "Open record" });
+  await expect(button).toBeVisible();
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations).toEqual([]);
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __openedRecords: () => unknown[] }).__openedRecords().length))
+    .toBe(1);
+});

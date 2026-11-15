@@ -1,4 +1,4 @@
-import { DataError, type ApprovalQuery, type DataClient, type ProfileScope, type StatusCounts } from "./dataClient";
+import { DataError, type ApprovalQuery, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
 import { CURRENT_USER_ID, MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
 import type { ApprovalRow } from "./xrm/dataverse";
 import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
@@ -10,7 +10,10 @@ const sameId = (a: string | undefined, b: string) => a?.toLowerCase() === b.toLo
 const ACTIVE = 0;
 
 /** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
-export function createMockClient(scenario: ScenarioName): DataClient {
+export type MockClient = DataClient & { /** Calls of openRecord, in order. */ openedRecords: RecordRef[] };
+
+export function createMockClient(scenario: ScenarioName): MockClient {
+  const openedRecords: RecordRef[] = [];
   const rows = scenarioApprovals(scenario);
   const all = rows.map((row) => ({ item: mapApprovalListItem({ ...row }), row }));
   const hasRequest = (row: ApprovalRow, userId: string, activeOnly: boolean) =>
@@ -79,6 +82,9 @@ export function createMockClient(scenario: ScenarioName): DataClient {
     async loadConfigValue() {
       return MOCK_CONFIG_JSON;
     },
-    async openRecord() {},
+    openedRecords,
+    async openRecord(record) {
+      openedRecords.push(record);
+    },
   };
 }

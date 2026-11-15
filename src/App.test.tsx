@@ -123,3 +123,44 @@ describe("Approval detail pane", () => {
     expect(await screen.findByRole("heading", { name: "Contoso purchase order 1001" })).toBeInTheDocument();
   });
 });
+
+describe("Open record", () => {
+  it("opens the Regarding Record through the DataClient", async () => {
+    const client = createMockClient("default");
+    render(<App client={client} lang="en" theme="light" />);
+    fireEvent.click(await screen.findByText("Contoso purchase order 1001"));
+    const pane = await screen.findByRole("complementary", { name: "Approval details" });
+
+    const button = await within(pane).findByRole("button", { name: "Open record" });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+
+    await waitFor(() => expect(client.openedRecords).toEqual([{ entityName: "account", entityId: "00000000-0000-0000-0000-0000000000a1" }]));
+  });
+
+  it("disables the button with an explanation when no Regarding Record is found", async () => {
+    const client = createMockClient("noRegarding");
+    render(<App client={client} lang="en" theme="light" />);
+    fireEvent.click(await screen.findByText("Contoso approval without a record"));
+    const pane = await screen.findByRole("complementary", { name: "Approval details" });
+
+    const button = await within(pane).findByRole("button", { name: "Open record" });
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(button);
+    expect(client.openedRecords).toEqual([]);
+
+    fireEvent.focus(button);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("No record could be identified for this approval");
+  });
+
+  it("shows an error when the record cannot be opened", async () => {
+    const client = createMockClient("default");
+    client.openRecord = async () => {
+      throw new Error("nope");
+    };
+    render(<App client={client} lang="en" theme="light" />);
+    fireEvent.click(await screen.findByText("Contoso purchase order 1001"));
+    fireEvent.click(await screen.findByRole("button", { name: "Open record" }));
+    expect(await screen.findByText("Could not open the record")).toBeInTheDocument();
+  });
+});

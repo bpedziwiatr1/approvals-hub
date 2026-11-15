@@ -1,9 +1,9 @@
-import { Button, Spinner, makeStyles, tokens } from "@fluentui/react-components";
+import { Button, Spinner, Tooltip, makeStyles, tokens } from "@fluentui/react-components";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ApprovalDetail, ApprovalStepDetail, DataClient } from "../data/dataClient";
+import type { ApprovalDetail, ApprovalStepDetail, DataClient, RecordRef } from "../data/dataClient";
 
 const useStyles = makeStyles({
   pane: {
@@ -29,6 +29,7 @@ const useStyles = makeStyles({
   stepTitle: { fontWeight: tokens.fontWeightSemibold, padding: 0 },
   response: { margin: `${tokens.spacingVerticalS} 0`, paddingLeft: tokens.spacingHorizontalM, borderLeft: `2px solid ${tokens.colorNeutralStroke2}` },
   comment: { margin: `${tokens.spacingVerticalXXS} 0 0`, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+  openRecord: { display: "flex", alignItems: "center", gap: tokens.spacingHorizontalS, margin: `0 0 ${tokens.spacingVerticalM}` },
   muted: { color: tokens.colorNeutralForeground3 },
 });
 
@@ -76,13 +77,13 @@ export function DetailPane({ client, approvalId, lang, layout = "side" }: { clie
           <Button onClick={() => setAttempt((n) => n + 1)}>{t("detail.retry")}</Button>
         </div>
       ) : (
-        <Ready detail={state.detail} format={(iso) => dateFormat.format(new Date(iso))} />
+        <Ready client={client} detail={state.detail} format={(iso) => dateFormat.format(new Date(iso))} />
       )}
     </aside>
   );
 }
 
-function Ready({ detail, format }: { detail: ApprovalDetail; format: (iso: string) => string }) {
+function Ready({ client, detail, format }: { client: DataClient; detail: ApprovalDetail; format: (iso: string) => string }) {
   const styles = useStyles();
   const { t } = useTranslation();
   return (
@@ -91,6 +92,7 @@ function Ready({ detail, format }: { detail: ApprovalDetail; format: (iso: strin
       <p className={styles.meta}>
         {t(`status.${detail.status}`)} · {format(detail.createdOn)}
       </p>
+      <OpenRecord client={client} regarding={detail.regarding} />
       {detail.outcome && (
         <p>
           <strong>{t("detail.outcome")}</strong> {detail.outcome}
@@ -105,6 +107,29 @@ function Ready({ detail, format }: { detail: ApprovalDetail; format: (iso: strin
         <Step key={step.number} step={step} format={format} />
       ))}
     </>
+  );
+}
+
+/** "Open record": navigates to the Regarding Record; disabled, with the reason as a tooltip, when there is none. */
+function OpenRecord({ client, regarding }: { client: DataClient; regarding: RecordRef | null }) {
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const [failed, setFailed] = useState(false);
+  const open = () => {
+    if (!regarding) return;
+    setFailed(false);
+    client.openRecord(regarding).catch(() => setFailed(true));
+  };
+  const button = (
+    <Button appearance="primary" disabledFocusable={!regarding} onClick={open}>
+      {t("detail.openRecord")}
+    </Button>
+  );
+  return (
+    <div className={styles.openRecord}>
+      {regarding ? button : <Tooltip content={t("detail.noRegarding")} relationship="description">{button}</Tooltip>}
+      {failed && <span role="alert">{t("detail.openRecordFailed")}</span>}
+    </div>
   );
 }
 

@@ -106,6 +106,9 @@ export function createXrmClient(xrm: XrmLike): DataClient {
       const values = definition[ENV_VAR.valuesNavigation] as { value?: string | null }[] | undefined;
       return values?.[0]?.value ?? (definition[ENV_VAR.defaultValue] as string | null | undefined) ?? null;
     },
-    openRecord: () => notYet("openRecord"),
+    async openRecord(record) {
+      if (!xrm.Navigation) throw new DataError("server", "Xrm.Navigation is not available outside a model-driven app");
+      await xrm.Navigation.openForm({ entityName: record.entityName, entityId: record.entityId });
+    },
   };
 }

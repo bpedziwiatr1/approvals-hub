@@ -69,6 +69,7 @@ function applyExpand(result: Entity, source: Entity, expand: string | undefined)
  */
 export function createFakeXrm(data: FakeXrmData = {}) {
   const requests: RecordedRequest[] = [];
+  const openedForms: { entityName: string; entityId: string }[] = [];
   const tables: Record<string, Entity[]> = {
     msdyn_flow_approval: (data.approvals ?? []) as unknown as Entity[],
     environmentvariabledefinition: (data.environmentVariables ?? []).map((v) => ({
@@ -97,6 +98,11 @@ export function createFakeXrm(data: FakeXrmData = {}) {
         return { entities, nextLink: `${BASE_URL}${entitySet}?${next.toString()}` };
       },
     },
+    Navigation: {
+      async openForm(options) {
+        openedForms.push(options);
+      },
+    },
     Utility: {
       getGlobalContext: () => ({
         getClientUrl: () => "https://contoso.crm.dynamics.com",
@@ -105,5 +111,5 @@ export function createFakeXrm(data: FakeXrmData = {}) {
     },
   };
 
-  return { xrm, requests };
+  return { xrm, requests, openedForms };
 }

@@ -1,4 +1,5 @@
 import type { ApprovalDetail, ApprovalListItem, ApprovalResponse, ApprovalStatus, ApprovalStepDetail, Approver } from "../dataClient";
+import { resolveRegarding } from "../regarding";
 import { APPROVAL, APPROVAL_STATUSCODE, REQUEST_STATUSCODE, type ApprovalRequestRow, type ApprovalResponseRow, type ApprovalRow, type ApprovalStepRow } from "./dataverse";
 import type { Entity } from "./xrmTypes";
 
@@ -94,5 +95,6 @@ export function mapApprovalDetail(row: ApprovalRow): ApprovalDetail {
       };
     });
 
-  return { ...listItem, details: row.msdyn_flow_approval_details ?? "", steps };
+  const details = row.msdyn_flow_approval_details ?? "";
+  return { ...listItem, details, steps, regarding: resolveRegarding({ itemLink: row.msdyn_flow_approval_itemlink, details }) };
 }
