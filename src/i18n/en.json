@@ -30,5 +30,11 @@
   "filter.search": "Search by title",
   "filter.status": "Status",
   "config.invalid": "The configuration is invalid, so the built-in defaults are shown. {{detail}}",
-  "config.unknownProfile": "Profile \"{{name}}\" does not exist, so the default profile is shown."
+  "config.unknownProfile": "Profile \"{{name}}\" does not exist, so the default profile is shown.",
+  "filter.owner": "Owner (user ID)",
+  "filter.approver": "Approver (user ID)",
+  "filter.createdFrom": "Created from",
+  "filter.createdTo": "Created to",
+  "filter.assignedToMe": "Assigned to me",
+  "filter.pendingOnly": "Pending only"
 }

@@ -55,10 +55,16 @@ export function createXrmClient(xrm: XrmLike): DataClient {
     }
   };
 
+  const currentUserId = () => {
+    const id = xrm.Utility?.getGlobalContext().userSettings.userId;
+    if (!id) throw new DataError("server", "The current user is not available");
+    return id;
+  };
+
   return {
     async listApprovals(query, page) {
       // The continuation token is the query part of @odata.nextLink, which Xrm.WebApi takes back as options.
-      const options = page.continuationToken ?? buildListOptions(query);
+      const options = page.continuationToken ?? buildListOptions(query, query.assignedToMe ? currentUserId() : undefined);
       const result = await retrieve(APPROVAL.logicalName, options, page.size);
       return { items: result.entities.map(mapApprovalListItem), continuationToken: nextPageOptions(result.nextLink) };
     },

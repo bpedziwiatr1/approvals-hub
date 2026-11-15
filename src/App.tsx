@@ -166,6 +166,9 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
   });
   const title = useDebouncedValue(filters.title.trim(), SEARCH_DEBOUNCE_MS);
   const statusKey = filters.statuses.join(",");
+  const { ownerId, approverId, createdFrom, createdTo, assignedToMe } = filters;
+  const pendingOnly = assignedToMe?.pendingOnly;
+  const assigned = assignedToMe !== undefined;
 
   // The server query: the Profile Scope always applies; title search follows the debounced text, statuses apply at once.
   // The scope lives only here, never in the URL filter state or in any control, so users cannot remove it.
@@ -176,15 +179,21 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
       ...(hasScope ? { scope } : {}),
       ...(title ? { title } : {}),
       ...(statusKey ? { statuses: STATUS_ORDER.filter((s) => statusKey.split(",").includes(s)) } : {}),
+      ...(ownerId ? { ownerId } : {}),
+      ...(approverId ? { approverId } : {}),
+      // Calendar days are UTC days, both ends inclusive.
+      ...(createdFrom ? { createdFrom: `${createdFrom}T00:00:00.000Z` } : {}),
+      ...(createdTo ? { createdTo: `${createdTo}T23:59:59.999Z` } : {}),
+      ...(assigned ? { assignedToMe: { pendingOnly: pendingOnly === true } } : {}),
     }),
-    [hasScope, scope, title, statusKey],
+    [hasScope, scope, title, statusKey, ownerId, approverId, createdFrom, createdTo, assigned, pendingOnly],
   );
 
   // Keep the URL in step with the filters actually applied, so the address can be shared.
   useEffect(() => {
-    const search = writeFilters(window.location.search, { title, statuses: query.statuses ?? [] });
+    const search = writeFilters(window.location.search, { title, statuses: query.statuses ?? [], ownerId, approverId, createdFrom, createdTo, assignedToMe: assigned ? { pendingOnly: pendingOnly === true } : undefined });
     if (search !== window.location.search) window.history.replaceState(window.history.state, "", `${window.location.pathname}${search}${window.location.hash}`);
-  }, [title, query.statuses]);
+  }, [title, query.statuses, ownerId, approverId, createdFrom, createdTo, assigned, pendingOnly]);
 
   const toggleStatus = (status: Filters["statuses"][number], checked: boolean) =>
     setFilters((f) => ({ ...f, statuses: checked ? [...f.statuses, status] : f.statuses.filter((s) => s !== status) }));
@@ -213,9 +222,48 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
           ))}
         </fieldset>
       </div>
+      <div className={styles.filterBar}>
+        <GuidInput label={t("filter.owner")} value={ownerId} onChange={(id) => setFilters((f) => ({ ...f, ownerId: id }))} />
+        <GuidInput label={t("filter.approver")} value={approverId} onChange={(id) => setFilters((f) => ({ ...f, approverId: id }))} />
+        <Input type="date" aria-label={t("filter.createdFrom")} value={createdFrom ?? ""} onChange={(_, data) => setFilters((f) => ({ ...f, createdFrom: data.value || undefined }))} />
+        <Input type="date" aria-label={t("filter.createdTo")} value={createdTo ?? ""} onChange={(_, data) => setFilters((f) => ({ ...f, createdTo: data.value || undefined }))} />
+        <Checkbox
+          label={t("filter.assignedToMe")}
+          checked={assigned}
+          onChange={(_, data) => setFilters((f) => ({ ...f, assignedToMe: data.checked === true ? { pendingOnly: f.assignedToMe?.pendingOnly ?? false } : undefined }))}
+        />
+        <Checkbox
+          label={t("filter.pendingOnly")}
+          disabled={!assigned}
+          checked={pendingOnly === true}
+          onChange={(_, data) => setFilters((f) => ({ ...f, assignedToMe: { pendingOnly: data.checked === true } }))}
+        />
+      </div>
       {/* Remounted per query: a new filter starts at the top of a fresh list. */}
-      <ApprovalList key={`${title}|${statusKey}`} client={client} lang={lang} query={query} profile={profile} />
+      <ApprovalList key={JSON.stringify(query)} client={client} lang={lang} query={query} profile={profile} />
     </main>
+  );
+}
+
+const GUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+/** A user id box: the filter applies once the text is a GUID, and clears when the box is emptied. */
+function GuidInput({ label, value, onChange }: { label: string; value: string | undefined; onChange: (id: string | undefined) => void }) {
+  const [text, setText] = useState(value ?? "");
+  const invalid = text.trim() !== "" && !GUID.test(text.trim());
+  return (
+    <Input
+      aria-label={label}
+      aria-invalid={invalid}
+      placeholder={label}
+      value={text}
+      onChange={(_, data) => {
+        setText(data.value);
+        const id = data.value.trim();
+        if (id === "") onChange(undefined);
+        else if (GUID.test(id)) onChange(id);
+      }}
+    />
   );
 }
 
