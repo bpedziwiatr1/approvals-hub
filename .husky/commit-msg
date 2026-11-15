@@ -1,1 +1,5 @@
+if grep -Eiq '^(Co-Authored-By:.*Claude|Claude-Session:)|Generated with .*Claude Code' "$1"; then
+  echo "commit message: remove Claude attribution lines (see CLAUDE.md)" >&2
+  exit 1
+fi
 npx --no -- commitlint --edit "$1"
