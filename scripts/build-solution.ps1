@@ -5,7 +5,7 @@ Set-Location (Join-Path $PSScriptRoot '..')
 function Invoke-Native { & $args[0] $args[1..($args.Length - 1)]; if ($LASTEXITCODE -ne 0) { throw "$($args -join ' ') failed with exit code $LASTEXITCODE" } }
 
 Invoke-Native node scripts/solution.mjs check
-Invoke-Native npm run build
+Invoke-Native npm.cmd run build
 Invoke-Native node scripts/check-dist.mjs
 $staged = (& node scripts/solution.mjs stage)
 if ($LASTEXITCODE -ne 0) { throw 'solution.mjs stage failed' }
