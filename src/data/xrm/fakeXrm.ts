@@ -1,3 +1,4 @@
+import { compileFilter } from "./fakeFilter";
 import { ENTITY_SETS, type ApprovalRow } from "./dataverse";
 import type { Entity, XrmErrorLike, XrmLike } from "./xrmTypes";
 
@@ -52,7 +53,7 @@ function applySelect(row: Entity, select: string | undefined): Entity {
 
 /**
  * In-memory Xrm whose WebApi behaves like Dataverse for the queries the hub sends:
- * $select, $orderby, server paging via odata.maxpagesize and @odata.nextLink ($skiptoken).
+ * $select, $filter (see fakeFilter), $orderby, server paging via odata.maxpagesize and @odata.nextLink ($skiptoken).
  * Each request is recorded as it would reach the Web API (entity set, query options, Prefer header).
  */
 export function createFakeXrm(data: FakeXrmData = {}) {
@@ -70,7 +71,8 @@ export function createFakeXrm(data: FakeXrmData = {}) {
         if (data.failWith) throw data.failWith;
 
         const { $skiptoken, ...query } = params;
-        const sorted = applyOrderBy(tables[entityLogicalName] ?? [], query.$orderby);
+        const rows = tables[entityLogicalName] ?? [];
+        const sorted = applyOrderBy(query.$filter ? rows.filter(compileFilter(query.$filter)) : rows, query.$orderby);
         const start = $skiptoken ? Number($skiptoken) : 0;
         const end = maxPageSize ? start + maxPageSize : sorted.length;
         const entities = sorted.slice(start, end).map((row) => applySelect(row, query.$select));
