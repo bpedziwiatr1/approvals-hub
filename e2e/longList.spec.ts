@@ -8,12 +8,11 @@ for (const client of ["mock", "fakeXrm"]) {
     expect(await grid.getByRole("row").count()).toBeLessThan(80);
 
     const region = page.getByRole("region", { name: "Approvals list" });
-    for (let i = 0; i < 6; i += 1) {
+    // Scroll to the bottom until a later window is rendered; web-first retry instead of fixed waits.
+    await expect(async () => {
       await region.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
-      await page.waitForTimeout(100);
-    }
-
-    await expect(grid.getByText(/Contoso long list approval 0[3-9]\d\d/).first()).toBeVisible();
+      await expect(grid.getByText(/Contoso long list approval 0[3-9]\d\d/).first()).toBeVisible({ timeout: 500 });
+    }).toPass({ timeout: 15_000 });
     await expect(grid.getByText("Contoso long list approval 0001")).toHaveCount(0);
     expect(await grid.getByRole("row").count()).toBeLessThan(80);
   });

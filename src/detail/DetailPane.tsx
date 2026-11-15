@@ -16,10 +16,12 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
     borderRadius: tokens.borderRadiusMedium,
   },
+  drawer: { padding: 0 },
   heading: { margin: 0, fontSize: tokens.fontSizeBase500, fontWeight: tokens.fontWeightSemibold },
   meta: { color: tokens.colorNeutralForeground2, margin: `${tokens.spacingVerticalXS} 0 ${tokens.spacingVerticalM}` },
   markdown: {
     overflowWrap: "anywhere",
+    "& a": { color: tokens.colorBrandForegroundLink },
     "& table": { borderCollapse: "collapse" },
     "& th, & td": { border: `1px solid ${tokens.colorNeutralStroke2}`, padding: tokens.spacingHorizontalXS },
   },
@@ -41,7 +43,7 @@ interface Loaded {
  * Details of one Approval: markdown details (react-markdown renders no raw HTML and drops unsafe URLs),
  * Approval Responses grouped by Approval Step, pending and reassigned Approvers, and the Outcome.
  */
-export function DetailPane({ client, approvalId, lang }: { client: DataClient; approvalId: string | null; lang: string }) {
+export function DetailPane({ client, approvalId, lang, layout = "side" }: { client: DataClient; approvalId: string | null; lang: string; layout?: "side" | "drawer" }) {
   const styles = useStyles();
   const { t } = useTranslation();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -63,7 +65,7 @@ export function DetailPane({ client, approvalId, lang }: { client: DataClient; a
   }, [client, approvalId, key]);
 
   return (
-    <aside className={styles.pane} aria-label={t("detail.region")}>
+    <aside className={layout === "drawer" ? styles.drawer : styles.pane} aria-label={t("detail.region")}>
       {!approvalId ? (
         <p className={styles.muted}>{t("detail.none")}</p>
       ) : state === null ? (

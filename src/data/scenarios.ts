@@ -2,7 +2,7 @@ import { buildApproval, buildRequest, buildResponse, buildStep } from "./factori
 import { APPROVAL_STATUSCODE, type ApprovalRow } from "./xrm/dataverse";
 
 /** Local scenarios (`?scenario=`); the same synthetic rows feed mockClient and fakeXrm. */
-export const SCENARIO_NAMES = ["default", "multiStep", "longList", "statuses", "scoped"] as const;
+export const SCENARIO_NAMES = ["default", "multiStep", "longList", "statuses", "scoped", "empty", "noPermission", "serverError", "slow"] as const;
 export type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
 export function isScenarioName(value: string | null): value is ScenarioName {
@@ -28,6 +28,11 @@ const who = (id: string, name: string) => ({ _ownerid_value: id, [NAME]: name })
 /** Approval rows of a scenario, newest first. */
 export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
   switch (name) {
+    case "empty":
+      return [];
+    case "noPermission":
+    case "serverError":
+    case "slow":
     case "default":
       return [
         buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a001", msdyn_flow_approval_title: "Contoso purchase order 1001", msdyn_flow_approval_category: "Purchasing", msdyn_flow_approval_details: "Please approve **purchase order 1001**.", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso")), buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(ANN, "Ann Contoso"), msdyn_flow_approvalresponse_comments: "Fine by me" })], statuscode: APPROVAL_STATUSCODE.pending, createdon: "2025-03-12T08:30:00Z" }),

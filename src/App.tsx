@@ -1,7 +1,12 @@
 import {
+  Button,
   Checkbox,
   FluentProvider,
   Input,
+  OverlayDrawer,
+  DrawerBody,
+  DrawerHeader,
+  DrawerHeaderTitle,
   Spinner,
   Table,
   TableBody,
@@ -15,12 +20,14 @@ import {
   tokens,
 } from "@fluentui/react-components";
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
+import { Dismiss24Regular } from "@fluentui/react-icons";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { loadProfile, type ColumnId, type ConfigNotice, type ResolvedProfile } from "./config/profileConfig";
-import type { ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
+import { DataError, type ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
 import { DetailPane } from "./detail/DetailPane";
 import { STATUS_ORDER, readFilters, writeFilters, type Filters } from "./filters/urlState";
 import { StatusBadge } from "./StatusBadge";
+import { useNarrow } from "./useNarrow";
 import { useDebouncedValue } from "./useDebouncedValue";
 import { visibleRange } from "./grid/virtualRange";
 import { createI18n, type Lang } from "./i18n";
@@ -95,15 +102,18 @@ interface ListState {
   continuationToken: string | null;
   loadingMore: boolean;
   failed: boolean;
+  /** Why the first page failed: no permission gets its own message and no retry. */
+  failure: "forbidden" | "server" | null;
 }
 
-const INITIAL: ListState = { items: null, continuationToken: null, loadingMore: false, failed: false };
+const INITIAL: ListState = { items: null, continuationToken: null, loadingMore: false, failed: false, failure: null };
 
 /** Loads the list one server page at a time; `loadMore` fetches the next page when there is one. */
 function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: number) {
   const [state, setState] = useState<ListState>(INITIAL);
   const inFlight = useRef(false);
   const generation = useRef(0);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const gen = ++generation.current;
@@ -113,8 +123,8 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: nu
       .then((page) => {
         if (gen === generation.current) setState({ ...INITIAL, items: page.items, continuationToken: page.continuationToken });
       })
-      .catch(() => {
-        if (gen === generation.current) setState({ ...INITIAL, failed: true });
+      .catch((error: unknown) => {
+        if (gen === generation.current) setState({ ...INITIAL, failed: true, failure: error instanceof DataError && error.kind === "forbidden" ? "forbidden" : "server" });
       })
       .finally(() => {
         if (gen === generation.current) inFlight.current = false;
@@ -123,7 +133,12 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: nu
       generation.current += 1;
       inFlight.current = false;
     };
-  }, [client, query, pageSize]);
+  }, [client, query, pageSize, attempt]);
+
+  const retry = useCallback(() => {
+    setState(INITIAL);
+    setAttempt((n) => n + 1);
+  }, []);
 
   const loadMore = useCallback(() => {
     const token = state.continuationToken;
@@ -145,7 +160,7 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: nu
       });
   }, [client, query, pageSize, state.continuationToken, state.failed]);
 
-  return { ...state, loadMore };
+  return { ...state, loadMore, retry };
 }
 
 interface PageProps {
@@ -222,8 +237,9 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
 function ApprovalList({ client, lang, query, profile }: { client: DataClient; lang: Lang; query: ApprovalQuery; profile: ResolvedProfile }) {
   const styles = useStyles();
   const { t } = useTranslation();
-  const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client, query, profile.pageSize);
+  const { items, continuationToken, loadingMore, failed, failure, loadMore, retry } = useApprovalPages(client, query, profile.pageSize);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const narrow = useNarrow();
   const [scroll, setScroll] = useState({ top: 0, height: FALLBACK_VIEWPORT_HEIGHT });
 
   const count = items?.length ?? 0;
@@ -244,7 +260,14 @@ function ApprovalList({ client, lang, query, profile }: { client: DataClient; la
   return (
     <>
       {failed && !items ? (
-        <p role="alert">{t("list.error")}</p>
+        failure === "forbidden" ? (
+          <p role="alert">{t("list.noPermission")}</p>
+        ) : (
+          <div role="alert">
+            <p>{t("list.error")}</p>
+            <Button onClick={retry}>{t("list.retry")}</Button>
+          </div>
+        )
       ) : items === null ? (
         <Spinner label={t("list.loading")} />
       ) : items.length === 0 ? (
@@ -294,7 +317,18 @@ function ApprovalList({ client, lang, query, profile }: { client: DataClient; la
             </p>
           )}
         </div>
-        <DetailPane client={client} approvalId={selectedId} lang={lang} />
+        {narrow ? (
+          <OverlayDrawer open={selectedId !== null} onOpenChange={(_, data) => !data.open && setSelectedId(null)} position="end" size="medium" aria-label={t("detail.region")}>
+            <DrawerHeader>
+              <DrawerHeaderTitle action={<Button appearance="subtle" aria-label={t("detail.close")} icon={<Dismiss24Regular />} onClick={() => setSelectedId(null)} />}>{t("detail.region")}</DrawerHeaderTitle>
+            </DrawerHeader>
+            <DrawerBody>
+              <DetailPane client={client} approvalId={selectedId} lang={lang} layout="drawer" />
+            </DrawerBody>
+          </OverlayDrawer>
+        ) : (
+          <DetailPane client={client} approvalId={selectedId} lang={lang} />
+        )}
         </div>
       )}
     </>

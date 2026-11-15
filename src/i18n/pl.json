@@ -30,5 +30,8 @@
   "filter.search": "Szukaj po tytule",
   "filter.status": "Status",
   "config.invalid": "Konfiguracja jest nieprawidłowa, dlatego widoczne są ustawienia wbudowane. {{detail}}",
-  "config.unknownProfile": "Profil \"{{name}}\" nie istnieje, dlatego widoczny jest profil domyślny."
+  "config.unknownProfile": "Profil \"{{name}}\" nie istnieje, dlatego widoczny jest profil domyślny.",
+  "list.noPermission": "Brak uprawnień do odczytu zatwierdzeń",
+  "list.retry": "Ponów",
+  "detail.close": "Zamknij"
 }
