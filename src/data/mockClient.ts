@@ -1,4 +1,4 @@
-import { DataError, emptyStatusCounts, type ApprovalQuery, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
+import { DataError, emptyStatusCounts, type ApprovalQuery, type SortField, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
 import { CURRENT_USER_ID, MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
 import type { ApprovalRow } from "./xrm/dataverse";
 import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
@@ -31,8 +31,25 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       (!scope.tags || (row.msdyn_flow_approval_tags ?? "").toLowerCase().includes(scope.tags.toLowerCase()))
     );
   };
+  // Sort keys as the server orders them: title, stored status code, created on, owner id, current step (no step first).
+  const sortKey = ({ item, row }: (typeof all)[number], field: SortField): string | number =>
+    ({
+      title: item.title.toLowerCase(),
+      status: row.statuscode,
+      createdOn: Date.parse(item.createdOn),
+      owner: row._ownerid_value ?? "",
+      currentStep: row.msdyn_flow_approval_currentstepnumber ?? -1,
+    })[field];
+  const sorted = (entries: typeof all, sort: ApprovalQuery["sort"]) => {
+    if (!sort) return entries;
+    const sign = sort.descending ? -1 : 1;
+    return [...entries].sort((a, b) => {
+      const [x, y] = [sortKey(a, sort.field), sortKey(b, sort.field)];
+      return x === y ? Date.parse(b.item.createdOn) - Date.parse(a.item.createdOn) : (x < y ? -1 : 1) * sign;
+    });
+  };
   const matching = (query: ApprovalQuery) =>
-    all
+    sorted(all, query.sort)
       .filter(
         ({ item: i, row }) =>
           inScope(row, query.scope) &&

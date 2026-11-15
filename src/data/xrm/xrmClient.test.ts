@@ -4,6 +4,9 @@ import { buildApproval, buildRequest, buildResponse } from "../factories";
 import { createFakeXrm } from "./fakeXrm";
 import { createXrmClient } from "./xrmClient";
 
+const LIST_SELECT = "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon,_ownerid_value,msdyn_flow_approval_currentstepnumber";
+const LIST_EXPAND = "msdyn_flow_approvalrelationship_approvalresponses($select=_ownerid_value,msdyn_flow_approvalresponse_response,createdon)";
+
 describe("xrmClient listApprovals contract", () => {
   it("queries the Approvals entity set with the list $select, newest first, one server page at a time", async () => {
     const fake = createFakeXrm({ approvals: [buildApproval()] });
@@ -15,7 +18,8 @@ describe("xrmClient listApprovals contract", () => {
       {
         entitySet: "msdyn_flow_approvals",
         params: {
-          $select: "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon",
+          $select: LIST_SELECT,
+          $expand: LIST_EXPAND,
           $orderby: "createdon desc",
         },
         prefer: "odata.maxpagesize=50",
@@ -45,7 +49,8 @@ describe("xrmClient listApprovals contract", () => {
     expect(fake.requests[1]).toEqual({
       entitySet: "msdyn_flow_approvals",
       params: {
-        $select: "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon",
+        $select: LIST_SELECT,
+        $expand: LIST_EXPAND,
         $orderby: "createdon desc",
         $skiptoken: "50",
       },
@@ -102,8 +107,8 @@ describe("xrmClient listApprovals contract", () => {
 
     expect(page).toEqual({
       items: [
-        { id: "00000000-0000-0000-0000-00000000b001", title: "Contoso invoice 1", status: "approved", outcome: null, createdOn: "2025-02-01T10:00:00Z" },
-        { id: "00000000-0000-0000-0000-00000000b002", title: "Contoso invoice 2", status: "completed", outcome: "Send back", createdOn: "2025-01-01T10:00:00Z" },
+        { id: "00000000-0000-0000-0000-00000000b001", title: "Contoso invoice 1", status: "approved", outcome: null, createdOn: "2025-02-01T10:00:00Z", owner: null, currentStep: null, lastDecision: null },
+        { id: "00000000-0000-0000-0000-00000000b002", title: "Contoso invoice 2", status: "completed", outcome: "Send back", createdOn: "2025-01-01T10:00:00Z", owner: null, currentStep: null, lastDecision: null },
       ],
       continuationToken: null,
     });
@@ -222,7 +227,8 @@ describe("xrmClient countByStatus and exportApprovals contract", () => {
     expect(fake.requests[0]).toEqual({
       entitySet: "msdyn_flow_approvals",
       params: {
-        $select: "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon",
+        $select: LIST_SELECT,
+        $expand: LIST_EXPAND,
         $filter: "contains(msdyn_flow_approval_title,'Export')",
         $orderby: "createdon desc",
       },
@@ -255,7 +261,7 @@ describe("xrmClient getApprovalDetail contract", () => {
     expect(request.entitySet).toBe("msdyn_flow_approvals");
     expect(request.params.$filter).toBe(`msdyn_flow_approvalid eq ${ID}`);
     expect(request.params.$select).toBe(
-      "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon,msdyn_flow_approval_details,msdyn_flow_approval_itemlink",
+      "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon,_ownerid_value,msdyn_flow_approval_currentstepnumber,msdyn_flow_approval_details,msdyn_flow_approval_itemlink",
     );
     expect(request.params.$expand).toBe(
       [

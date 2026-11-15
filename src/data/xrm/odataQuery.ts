@@ -2,12 +2,17 @@ import type { ApprovalQuery, ApprovalStatus, ProfileScope, SortField } from "../
 import { APPROVE_RESULTS, DISPLAY_STATUSES, REJECT_RESULTS } from "../displayStatus";
 import { APPROVAL, APPROVAL_NAV, REQUEST_STATECODE_ACTIVE } from "./dataverse";
 
-const LIST_SELECT = [APPROVAL.id, APPROVAL.title, APPROVAL.result, APPROVAL.statuscode, APPROVAL.createdOn];
+const LIST_SELECT = [APPROVAL.id, APPROVAL.title, APPROVAL.result, APPROVAL.statuscode, APPROVAL.createdOn, APPROVAL.owner, APPROVAL.currentStep];
+
+/** The responses of each Approval, for the last decision shown in the list. */
+const LIST_EXPAND = `${APPROVAL_NAV.responses}($select=_ownerid_value,msdyn_flow_approvalresponse_response,createdon)`;
 
 const SORT_COLUMNS: Record<SortField, string> = {
   title: APPROVAL.title,
   status: APPROVAL.statuscode,
   createdOn: APPROVAL.createdOn,
+  owner: APPROVAL.owner,
+  currentStep: APPROVAL.currentStep,
 };
 
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
@@ -87,7 +92,9 @@ export function buildListOptions(query: ApprovalQuery, currentUserId?: string): 
   const filter = buildFilter(query, currentUserId);
   const params = [`$select=${LIST_SELECT.join(",")}`];
   if (filter) params.push(`$filter=${encodeURIComponent(filter)}`);
-  params.push(`$orderby=${SORT_COLUMNS[sort.field]} ${sort.descending ? "desc" : "asc"}`);
+  // Created on, newest first, breaks ties so that paging stays stable.
+  const order = [`${SORT_COLUMNS[sort.field]} ${sort.descending ? "desc" : "asc"}`, ...(sort.field === "createdOn" ? [] : [`${APPROVAL.createdOn} desc`])];
+  params.push(`$expand=${LIST_EXPAND}`, `$orderby=${order.join(",")}`);
   return `?${params.join("&")}`;
 }
 

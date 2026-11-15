@@ -1,4 +1,4 @@
-import type { ApprovalDetail, ApprovalListItem, ApprovalResponse, ApprovalStatus, ApprovalStepDetail, Approver } from "../dataClient";
+import type { ApprovalDetail, ApprovalListItem, LastDecision, ApprovalResponse, ApprovalStatus, ApprovalStepDetail, Approver } from "../dataClient";
 import { resolveRegarding } from "../regarding";
 import { DISPLAY_STATUSES } from "../displayStatus";
 import { APPROVAL, REQUEST_STATUSCODE, type ApprovalRequestRow, type ApprovalResponseRow, type ApprovalRow, type ApprovalStepRow } from "./dataverse";
@@ -21,15 +21,36 @@ export function deriveStatus(statuscode: number, result: string | null): { statu
 
 const text = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
+const FORMATTED = "@OData.Community.Display.V1.FormattedValue";
+
+/** The user a lookup column points at, named by its formatted value (their id when the name is not annotated). */
+function userOf(row: Entity, column: string): Approver | null {
+  const id = text(row[column]);
+  return id ? { id, name: text(row[`${column}${FORMATTED}`]) || id } : null;
+}
+
+/** The latest of the expanded Approval Responses, which is the last decision on the Approval. */
+function lastDecisionOf(row: Entity): LastDecision | null {
+  const responses = (row[APPROVAL.responses] as Entity[] | undefined) ?? [];
+  const latest = responses.reduce<Entity | null>((best, r) => (best === null || Date.parse(String(r.createdon)) > Date.parse(String(best.createdon)) ? r : best), null);
+  const approver = latest && userOf(latest, "_ownerid_value");
+  if (!latest || !approver) return null;
+  return { approver, response: text(latest.msdyn_flow_approvalresponse_response) ?? "", decidedOn: new Date(String(latest.createdon)).toISOString() };
+}
+
 /** One msdyn_flow_approval row (list columns) to an Approval list item. */
 export function mapApprovalListItem(row: Entity): ApprovalListItem {
   const { status, outcome } = deriveStatus(Number(row[APPROVAL.statuscode]), text(row[APPROVAL.result]));
+  const step = row[APPROVAL.currentStep];
   return {
     id: String(row[APPROVAL.id]),
     title: text(row[APPROVAL.title]) ?? "",
     status,
     outcome,
     createdOn: String(row[APPROVAL.createdOn]),
+    owner: userOf(row, APPROVAL.owner),
+    currentStep: typeof step === "number" ? step : null,
+    lastDecision: lastDecisionOf(row),
   };
 }
 

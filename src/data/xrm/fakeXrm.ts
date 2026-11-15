@@ -19,6 +19,7 @@ export interface FakeXrmData {
   failWith?: XrmErrorLike;
 }
 
+const FORMATTED = "@OData.Community.Display.V1.FormattedValue";
 const AGGREGATE_LIMIT = 50_000;
 const BASE_URL = "https://contoso.crm.dynamics.com/api/data/v9.2/";
 
@@ -33,7 +34,8 @@ function compare(a: unknown, b: unknown): number {
   if (a === b) return 0;
   if (a === null || a === undefined) return -1;
   if (b === null || b === undefined) return 1;
-  return (a as string | number) < (b as string | number) ? -1 : 1;
+  const [x, y] = typeof a === "string" && typeof b === "string" ? [a.toLowerCase(), b.toLowerCase()] : [a as number, b as number];
+  return x === y ? 0 : x < y ? -1 : 1;
 }
 
 function applyOrderBy(rows: Entity[], orderby: string | undefined): Entity[] {
@@ -53,7 +55,10 @@ function applyOrderBy(rows: Entity[], orderby: string | undefined): Entity[] {
 
 function applySelect(row: Entity, select: string | undefined): Entity {
   if (!select) return { ...row };
-  return Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null]));
+  // Like Dataverse, a selected lookup brings its formatted value (the display name) along.
+  return Object.fromEntries(
+    select.split(",").flatMap((f) => [[f, row[f] ?? null], ...(`${f}${FORMATTED}` in row ? [[`${f}${FORMATTED}`, row[`${f}${FORMATTED}`]]] : [])]),
+  );
 }
 
 /**

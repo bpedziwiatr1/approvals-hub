@@ -11,7 +11,9 @@ export const APPROVAL = {
   statuscode: "statuscode",
   createdOn: "createdon",
   owner: "_ownerid_value",
+  currentStep: "msdyn_flow_approval_currentstepnumber",
   requests: "msdyn_flow_approvalrelationship_approvalrequests",
+  responses: "msdyn_flow_approvalrelationship_approvalresponses",
   details: "msdyn_flow_approval_details",
   itemLink: "msdyn_flow_approval_itemlink",
 } as const;
@@ -49,6 +51,8 @@ export interface ApprovalRow {
   msdyn_flow_approval_tags?: string | null;
   /** The Owner (flow connection user). */
   _ownerid_value?: string;
+  "_ownerid_value@OData.Community.Display.V1.FormattedValue"?: string;
+  msdyn_flow_approval_currentstepnumber?: number | null;
   msdyn_flow_approval_details?: string | null;
   msdyn_flow_approval_itemlink?: string | null;
   msdyn_flow_approvalrelationship_approvalrequests?: ApprovalRequestRow[];

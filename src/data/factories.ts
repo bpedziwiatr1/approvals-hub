@@ -16,6 +16,9 @@ export function buildApprovalListItem(overrides: Partial<ApprovalListItem> = {})
     status: "pending",
     outcome: null,
     createdOn: "2025-01-15T09:00:00Z",
+    owner: null,
+    currentStep: null,
+    lastDecision: null,
     ...overrides,
   };
 }
