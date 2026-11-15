@@ -14,5 +14,7 @@
   "list.empty": "No approvals found",
   "list.error": "Could not load approvals",
   "list.region": "Approvals list",
-  "list.loadingMore": "Loading more approvals"
+  "list.loadingMore": "Loading more approvals",
+  "filter.search": "Search by title",
+  "filter.status": "Status"
 }

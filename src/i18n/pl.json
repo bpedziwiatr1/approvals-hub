@@ -14,5 +14,7 @@
   "list.empty": "Brak zatwierdzeń",
   "list.error": "Nie udało się załadować zatwierdzeń",
   "list.region": "Lista zatwierdzeń",
-  "list.loadingMore": "Ładowanie kolejnych zatwierdzeń"
+  "list.loadingMore": "Ładowanie kolejnych zatwierdzeń",
+  "filter.search": "Szukaj po tytule",
+  "filter.status": "Status"
 }
