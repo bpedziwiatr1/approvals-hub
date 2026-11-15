@@ -1,16 +1,20 @@
 import { DataError, type ApprovalQuery, type DataClient, type ProfileScope, type StatusCounts } from "./dataClient";
-import { MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
+import { CURRENT_USER_ID, MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
 import type { ApprovalRow } from "./xrm/dataverse";
 import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
 
 const SLOW_DELAY_MS = 1500;
+const sameId = (a: string | undefined, b: string) => a?.toLowerCase() === b.toLowerCase();
+const ACTIVE = 0;
 
 /** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
 export function createMockClient(scenario: ScenarioName): DataClient {
   const rows = scenarioApprovals(scenario);
-  const all = rows.map((row) => mapApprovalListItem({ ...row }));
+  const all = rows.map((row) => ({ item: mapApprovalListItem({ ...row }), row }));
+  const hasRequest = (row: ApprovalRow, userId: string, activeOnly: boolean) =>
+    (row.msdyn_flow_approvalrelationship_approvalrequests ?? []).some((r) => sameId(r._ownerid_value, userId) && (!activeOnly || r.statecode === ACTIVE));
   const inScope = (row: ApprovalRow, scope: ProfileScope | undefined) => {
     if (!scope) return true;
     const title = row.msdyn_flow_approval_title.toLowerCase();
@@ -25,12 +29,19 @@ export function createMockClient(scenario: ScenarioName): DataClient {
     );
   };
   const matching = (query: ApprovalQuery) =>
-    all.filter(
-      (i, index) =>
-        inScope(rows[index], query.scope) &&
-        (!query.title || i.title.toLowerCase().includes(query.title.toLowerCase())) &&
-        (!query.statuses?.length || query.statuses.includes(i.status)),
-    );
+    all
+      .filter(
+        ({ item: i, row }) =>
+          inScope(row, query.scope) &&
+          (!query.title || i.title.toLowerCase().includes(query.title.toLowerCase())) &&
+          (!query.statuses?.length || query.statuses.includes(i.status)) &&
+          (!query.ownerId || sameId(row._ownerid_value, query.ownerId)) &&
+          (!query.approverId || hasRequest(row, query.approverId, false)) &&
+          (!query.assignedToMe || hasRequest(row, CURRENT_USER_ID, query.assignedToMe.pendingOnly)) &&
+          (!query.createdFrom || Date.parse(i.createdOn) >= Date.parse(query.createdFrom)) &&
+          (!query.createdTo || Date.parse(i.createdOn) <= Date.parse(query.createdTo)),
+      )
+      .map(({ item }) => item);
 
   // Failure-mode scenarios: noPermission always refuses, serverError fails the first list call only (so Retry recovers), slow answers late.
   // Calls made in the same tick (React StrictMode mounts effects twice in dev) count as one attempt.
@@ -63,7 +74,7 @@ export function createMockClient(scenario: ScenarioName): DataClient {
       yield* matching(query);
     },
     async getCurrentUser() {
-      return { id: "00000000-0000-0000-0000-0000000000f1", name: "Alex Contoso", languageId: 1033 };
+      return { id: CURRENT_USER_ID, name: "Alex Contoso", languageId: 1033 };
     },
     async loadConfigValue() {
       return MOCK_CONFIG_JSON;

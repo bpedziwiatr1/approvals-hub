@@ -33,5 +33,20 @@
   "config.unknownProfile": "Profil \"{{name}}\" nie istnieje, dlatego widoczny jest profil domyślny.",
   "list.noPermission": "Brak uprawnień do odczytu zatwierdzeń",
   "list.retry": "Ponów",
-  "detail.close": "Zamknij"
+  "detail.close": "Zamknij",
+  "filter.owner": "Właściciel (ID użytkownika)",
+  "filter.approver": "Zatwierdzający (ID użytkownika)",
+  "filter.createdFrom": "Utworzono od",
+  "filter.createdTo": "Utworzono do",
+  "filter.assignedToMe": "Przypisane do mnie",
+  "filter.pendingOnly": "Tylko oczekujące",
+  "command.region": "Polecenia",
+  "command.refresh": "Odśwież",
+  "command.export": "Eksportuj CSV",
+  "command.summary": "Pokaż podsumowanie",
+  "export.error": "Nie udało się wyeksportować zatwierdzeń",
+  "summary.region": "Podsumowanie",
+  "summary.other": "Inne",
+  "summary.loading": "Liczenie zatwierdzeń",
+  "summary.error": "Nie udało się policzyć zatwierdzeń"
 }

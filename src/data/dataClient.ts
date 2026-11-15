@@ -114,3 +114,7 @@ export interface DataClient {
   loadConfigValue(schemaName: string): Promise<string | null>;
   openRecord(record: RecordRef): Promise<void>;
 }
+
+export function emptyStatusCounts(): StatusCounts {
+  return { pending: 0, approved: 0, rejected: 0, completed: 0, cancelled: 0, expired: 0, abandoned: 0 };
+}

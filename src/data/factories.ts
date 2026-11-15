@@ -39,6 +39,7 @@ export function buildRequest(overrides: Partial<ApprovalRequestRow> = {}): Appro
     _ownerid_value: nextGuid(),
     msdyn_flow_approvalrequest_stepnumber: null,
     statuscode: REQUEST_STATUSCODE.active,
+    statecode: 0,
     ...overrides,
   };
 }

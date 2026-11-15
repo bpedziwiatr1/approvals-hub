@@ -8,6 +8,7 @@ import {
   DrawerHeader,
   DrawerHeaderTitle,
   Spinner,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -19,11 +20,14 @@ import {
   mergeClasses,
   tokens,
 } from "@fluentui/react-components";
+import { ArrowClockwise16Regular, ArrowDownload16Regular } from "@fluentui/react-icons";
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { Dismiss24Regular } from "@fluentui/react-icons";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { loadProfile, type ColumnId, type ConfigNotice, type ResolvedProfile } from "./config/profileConfig";
 import { DataError, type ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
+import { toTiles, type SummaryTiles as Tiles } from "./data/statusTiles";
+import { downloadCsv, toCsv } from "./export/csv";
 import { DetailPane } from "./detail/DetailPane";
 import { STATUS_ORDER, readFilters, writeFilters, type Filters } from "./filters/urlState";
 import { StatusBadge } from "./StatusBadge";
@@ -57,6 +61,18 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
     borderRadius: tokens.borderRadiusMedium,
   },
+  commands: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: tokens.spacingHorizontalM, marginBottom: tokens.spacingVerticalM },
+  summary: { display: "flex", flexWrap: "wrap", gap: tokens.spacingHorizontalM, marginBottom: tokens.spacingVerticalM },
+  tile: {
+    display: "flex",
+    flexDirection: "column",
+    minWidth: "120px",
+    padding: tokens.spacingVerticalS + " " + tokens.spacingHorizontalM,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+    color: tokens.colorNeutralForeground2,
+  },
+  tileCount: { fontSize: tokens.fontSizeHero700, fontWeight: tokens.fontWeightSemibold, color: tokens.colorNeutralForeground1 },
   filterBar: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: tokens.spacingHorizontalL, marginBottom: tokens.spacingVerticalM },
   search: { minWidth: "280px" },
   statuses: { display: "flex", flexWrap: "wrap", border: "none", margin: 0, padding: 0 },
@@ -109,7 +125,7 @@ interface ListState {
 const INITIAL: ListState = { items: null, continuationToken: null, loadingMore: false, failed: false, failure: null };
 
 /** Loads the list one server page at a time; `loadMore` fetches the next page when there is one. */
-function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: number) {
+function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: number, reloadKey: number) {
   const [state, setState] = useState<ListState>(INITIAL);
   const inFlight = useRef(false);
   const generation = useRef(0);
@@ -133,7 +149,7 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: nu
       generation.current += 1;
       inFlight.current = false;
     };
-  }, [client, query, pageSize, attempt]);
+  }, [client, query, pageSize, reloadKey, attempt]);
 
   const retry = useCallback(() => {
     setState(INITIAL);
@@ -181,6 +197,9 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
   });
   const title = useDebouncedValue(filters.title.trim(), SEARCH_DEBOUNCE_MS);
   const statusKey = filters.statuses.join(",");
+  const { ownerId, approverId, createdFrom, createdTo, assignedToMe } = filters;
+  const pendingOnly = assignedToMe?.pendingOnly;
+  const assigned = assignedToMe !== undefined;
 
   // The server query: the Profile Scope always applies; title search follows the debounced text, statuses apply at once.
   // The scope lives only here, never in the URL filter state or in any control, so users cannot remove it.
@@ -191,18 +210,46 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
       ...(hasScope ? { scope } : {}),
       ...(title ? { title } : {}),
       ...(statusKey ? { statuses: STATUS_ORDER.filter((s) => statusKey.split(",").includes(s)) } : {}),
+      ...(ownerId ? { ownerId } : {}),
+      ...(approverId ? { approverId } : {}),
+      // Calendar days are UTC days, both ends inclusive.
+      ...(createdFrom ? { createdFrom: `${createdFrom}T00:00:00.000Z` } : {}),
+      ...(createdTo ? { createdTo: `${createdTo}T23:59:59.999Z` } : {}),
+      ...(assigned ? { assignedToMe: { pendingOnly: pendingOnly === true } } : {}),
     }),
-    [hasScope, scope, title, statusKey],
+    [hasScope, scope, title, statusKey, ownerId, approverId, createdFrom, createdTo, assigned, pendingOnly],
   );
 
   // Keep the URL in step with the filters actually applied, so the address can be shared.
   useEffect(() => {
-    const search = writeFilters(window.location.search, { title, statuses: query.statuses ?? [] });
+    const search = writeFilters(window.location.search, { title, statuses: query.statuses ?? [], ownerId, approverId, createdFrom, createdTo, assignedToMe: assigned ? { pendingOnly: pendingOnly === true } : undefined });
     if (search !== window.location.search) window.history.replaceState(window.history.state, "", `${window.location.pathname}${search}${window.location.hash}`);
-  }, [title, query.statuses]);
+  }, [title, query.statuses, ownerId, approverId, createdFrom, createdTo, assigned, pendingOnly]);
 
   const toggleStatus = (status: Filters["statuses"][number], checked: boolean) =>
     setFilters((f) => ({ ...f, statuses: checked ? [...f.statuses, status] : f.statuses.filter((s) => s !== status) }));
+
+  // Refresh bumps refreshKey: the summary remounts and the list and open detail load again, the selection stays.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [showSummary, setShowSummary] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportFailed, setExportFailed] = useState(false);
+  const pageKey = JSON.stringify(query);
+
+  // Exports every Approval matching the applied query, not only the rows loaded in the list.
+  const exportCsv = async () => {
+    setExporting(true);
+    setExportFailed(false);
+    try {
+      const items: ApprovalListItem[] = [];
+      for await (const item of client.exportApprovals(query)) items.push(item);
+      downloadCsv(toCsv(items), `approvals-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch {
+      setExportFailed(true);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <main className={styles.page}>
@@ -212,6 +259,17 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
           {notice.kind === "invalidConfig" ? t("config.invalid", { detail: notice.detail }) : t("config.unknownProfile", { name: notice.name })}
         </p>
       ))}
+      <div className={styles.commands} role="toolbar" aria-label={t("command.region")}>
+        <Button appearance="subtle" icon={<ArrowClockwise16Regular />} onClick={() => setRefreshKey((k) => k + 1)}>
+          {t("command.refresh")}
+        </Button>
+        <Button appearance="subtle" icon={<ArrowDownload16Regular />} disabled={exporting} onClick={exportCsv}>
+          {t("command.export")}
+        </Button>
+        <Switch label={t("command.summary")} checked={showSummary} onChange={(_, data) => setShowSummary(data.checked)} />
+        {exportFailed && <span role="alert">{t("export.error")}</span>}
+      </div>
+      {showSummary && <SummaryTiles key={`summary|${pageKey}|${refreshKey}`} client={client} query={query} />}
       <div className={styles.filterBar}>
         <Input
           type="search"
@@ -228,16 +286,94 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
           ))}
         </fieldset>
       </div>
+      <div className={styles.filterBar}>
+        <GuidInput label={t("filter.owner")} value={ownerId} onChange={(id) => setFilters((f) => ({ ...f, ownerId: id }))} />
+        <GuidInput label={t("filter.approver")} value={approverId} onChange={(id) => setFilters((f) => ({ ...f, approverId: id }))} />
+        <Input type="date" aria-label={t("filter.createdFrom")} value={createdFrom ?? ""} onChange={(_, data) => setFilters((f) => ({ ...f, createdFrom: data.value || undefined }))} />
+        <Input type="date" aria-label={t("filter.createdTo")} value={createdTo ?? ""} onChange={(_, data) => setFilters((f) => ({ ...f, createdTo: data.value || undefined }))} />
+        <Checkbox
+          label={t("filter.assignedToMe")}
+          checked={assigned}
+          onChange={(_, data) => setFilters((f) => ({ ...f, assignedToMe: data.checked === true ? { pendingOnly: f.assignedToMe?.pendingOnly ?? false } : undefined }))}
+        />
+        <Checkbox
+          label={t("filter.pendingOnly")}
+          disabled={!assigned}
+          checked={pendingOnly === true}
+          onChange={(_, data) => setFilters((f) => ({ ...f, assignedToMe: { pendingOnly: data.checked === true } }))}
+        />
+      </div>
       {/* Remounted per query: a new filter starts at the top of a fresh list. */}
-      <ApprovalList key={`${title}|${statusKey}`} client={client} lang={lang} query={query} profile={profile} />
+      <ApprovalList key={pageKey} client={client} lang={lang} query={query} profile={profile} reloadKey={refreshKey} />
     </main>
   );
 }
 
-function ApprovalList({ client, lang, query, profile }: { client: DataClient; lang: Lang; query: ApprovalQuery; profile: ResolvedProfile }) {
+const GUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+/** A user id box: the filter applies once the text is a GUID, and clears when the box is emptied. */
+function GuidInput({ label, value, onChange }: { label: string; value: string | undefined; onChange: (id: string | undefined) => void }) {
+  const [text, setText] = useState(value ?? "");
+  const invalid = text.trim() !== "" && !GUID.test(text.trim());
+  return (
+    <Input
+      aria-label={label}
+      aria-invalid={invalid}
+      placeholder={label}
+      value={text}
+      onChange={(_, data) => {
+        setText(data.value);
+        const id = data.value.trim();
+        if (id === "") onChange(undefined);
+        else if (GUID.test(id)) onChange(id);
+      }}
+    />
+  );
+}
+
+const TILES: { key: keyof Tiles; label: string }[] = [
+  { key: "pending", label: "status.pending" },
+  { key: "approved", label: "status.approved" },
+  { key: "rejected", label: "status.rejected" },
+  { key: "other", label: "summary.other" },
+];
+
+/** Counts per summary tile under the applied query; remounted per query, so it starts with no numbers. */
+function SummaryTiles({ client, query }: { client: DataClient; query: ApprovalQuery }) {
   const styles = useStyles();
   const { t } = useTranslation();
-  const { items, continuationToken, loadingMore, failed, failure, loadMore, retry } = useApprovalPages(client, query, profile.pageSize);
+  const [tiles, setTiles] = useState<Tiles | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let current = true;
+    client
+      .countByStatus(query)
+      .then((counts) => current && setTiles(toTiles(counts)))
+      .catch(() => current && setFailed(true));
+    return () => {
+      current = false;
+    };
+  }, [client, query]);
+
+  if (failed) return <p role="alert">{t("summary.error")}</p>;
+  if (!tiles) return <Spinner size="tiny" label={t("summary.loading")} />;
+  return (
+    <div role="group" aria-label={t("summary.region")} className={styles.summary}>
+      {TILES.map(({ key, label }) => (
+        <div key={key} role="group" aria-label={t(label)} className={styles.tile}>
+          <span>{t(label)}</span>
+          <span className={styles.tileCount}>{tiles[key]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ApprovalList({ client, lang, query, profile, reloadKey }: { client: DataClient; lang: Lang; query: ApprovalQuery; profile: ResolvedProfile; reloadKey: number }) {
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const { items, continuationToken, loadingMore, failed, failure, loadMore, retry } = useApprovalPages(client, query, profile.pageSize, reloadKey);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const narrow = useNarrow();
   const [scroll, setScroll] = useState({ top: 0, height: FALLBACK_VIEWPORT_HEIGHT });
@@ -323,11 +459,11 @@ function ApprovalList({ client, lang, query, profile }: { client: DataClient; la
               <DrawerHeaderTitle action={<Button appearance="subtle" aria-label={t("detail.close")} icon={<Dismiss24Regular />} onClick={() => setSelectedId(null)} />}>{t("detail.region")}</DrawerHeaderTitle>
             </DrawerHeader>
             <DrawerBody>
-              <DetailPane client={client} approvalId={selectedId} lang={lang} layout="drawer" />
+              <DetailPane key={`${selectedId}|${reloadKey}`} client={client} approvalId={selectedId} lang={lang} layout="drawer" />
             </DrawerBody>
           </OverlayDrawer>
         ) : (
-          <DetailPane client={client} approvalId={selectedId} lang={lang} />
+          <DetailPane key={`${selectedId}|${reloadKey}`} client={client} approvalId={selectedId} lang={lang} />
         )}
         </div>
       )}

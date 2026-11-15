@@ -10,8 +10,13 @@ export const APPROVAL = {
   tags: "msdyn_flow_approval_tags",
   statuscode: "statuscode",
   createdOn: "createdon",
+  owner: "_ownerid_value",
+  requests: "msdyn_flow_approvalrelationship_approvalrequests",
   details: "msdyn_flow_approval_details",
 } as const;
+
+/** Approval Request `statecode`: 0 is active (still waiting for the Approver). */
+export const REQUEST_STATECODE_ACTIVE = 0;
 
 /** Entity sets by logical name, for transports that address the Web API by URL. */
 export const ENTITY_SETS: Record<string, string> = {
@@ -41,6 +46,8 @@ export interface ApprovalRow {
   createdon: string;
   msdyn_flow_approval_category?: string | null;
   msdyn_flow_approval_tags?: string | null;
+  /** The Owner (flow connection user). */
+  _ownerid_value?: string;
   msdyn_flow_approval_details?: string | null;
   msdyn_flow_approvalrelationship_approvalrequests?: ApprovalRequestRow[];
   msdyn_flow_approvalrelationship_approvalresponses?: ApprovalResponseRow[];
@@ -62,6 +69,8 @@ export interface ApprovalRequestRow {
   "_ownerid_value@OData.Community.Display.V1.FormattedValue"?: string;
   msdyn_flow_approvalrequest_stepnumber: number | null;
   statuscode: number;
+  /** 0 is active (still waiting for the Approver). */
+  statecode?: number;
 }
 
 /** Approval Response row: the responder is `_ownerid_value`. */
