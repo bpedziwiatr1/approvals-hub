@@ -1,5 +1,5 @@
 import { DataError, type DataClient } from "../dataClient";
-import { APPROVAL } from "./dataverse";
+import { APPROVAL, ENVIRONMENT_VARIABLE as ENV_VAR } from "./dataverse";
 import { toDataError } from "./errors";
 import { mapApprovalDetail, mapApprovalListItem } from "./mappers";
 import { buildDetailOptions, buildListOptions, GUID } from "./odataQuery";
@@ -71,7 +71,16 @@ export function createXrmClient(xrm: XrmLike): DataClient {
     },
     exportApprovals: () => ({ [Symbol.asyncIterator]: () => ({ next: () => notYet("exportApprovals") }) }),
     getCurrentUser: () => notYet("getCurrentUser"),
-    loadConfigValue: () => notYet("loadConfigValue"),
+    async loadConfigValue(schemaName) {
+      const filter = `${ENV_VAR.schemaName} eq '${schemaName.replace(/'/g, "''")}'`;
+      const expand = `${ENV_VAR.valuesNavigation}($select=value)`;
+      const options = `?$select=${ENV_VAR.defaultValue}&$filter=${encodeURIComponent(filter)}&$expand=${encodeURIComponent(expand)}`;
+      const { entities } = await retrieve(ENV_VAR.logicalName, options, 1);
+      const definition = entities[0];
+      if (!definition) return null;
+      const values = definition[ENV_VAR.valuesNavigation] as { value?: string | null }[] | undefined;
+      return values?.[0]?.value ?? (definition[ENV_VAR.defaultValue] as string | null | undefined) ?? null;
+    },
     openRecord: () => notYet("openRecord"),
   };
 }

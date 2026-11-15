@@ -110,6 +110,58 @@ describe("xrmClient listApprovals contract", () => {
   });
 });
 
+describe("xrmClient loadConfigValue contract", () => {
+  const SCHEMA = "bpt_ApprovalsHubConfig";
+
+  it("reads the definition by schema name with its value expanded, in one request", async () => {
+    const fake = createFakeXrm({ environmentVariables: [{ schemaName: SCHEMA, defaultValue: "{}", currentValue: "{}" }] });
+
+    await createXrmClient(fake.xrm).loadConfigValue(SCHEMA);
+
+    expect(fake.requests).toEqual([
+      {
+        entitySet: "environmentvariabledefinitions",
+        params: {
+          $select: "defaultvalue",
+          $filter: "schemaname eq 'bpt_ApprovalsHubConfig'",
+          $expand: "environmentvariabledefinition_environmentvariablevalue($select=value)",
+        },
+        prefer: "odata.maxpagesize=1",
+      },
+    ]);
+  });
+
+  it("prefers the current value over the default value", async () => {
+    const fake = createFakeXrm({ environmentVariables: [{ schemaName: SCHEMA, defaultValue: '{"profiles":{}}', currentValue: '{"profiles":{"a":{}}}' }] });
+    expect(await createXrmClient(fake.xrm).loadConfigValue(SCHEMA)).toBe('{"profiles":{"a":{}}}');
+  });
+
+  it("falls back to the default value when the environment has no value", async () => {
+    const fake = createFakeXrm({ environmentVariables: [{ schemaName: SCHEMA, defaultValue: '{"profiles":{}}' }] });
+    expect(await createXrmClient(fake.xrm).loadConfigValue(SCHEMA)).toBe('{"profiles":{}}');
+  });
+
+  it("escapes the schema name in the filter", async () => {
+    const fake = createFakeXrm();
+    await createXrmClient(fake.xrm).loadConfigValue("a'b");
+    expect(fake.requests[0].params.$filter).toBe("schemaname eq 'a''b'");
+  });
+
+  it("is null when the variable does not exist", async () => {
+    expect(await createXrmClient(createFakeXrm().xrm).loadConfigValue(SCHEMA)).toBeNull();
+  });
+
+  it("is null when neither value is set", async () => {
+    const fake = createFakeXrm({ environmentVariables: [{ schemaName: SCHEMA }] });
+    expect(await createXrmClient(fake.xrm).loadConfigValue(SCHEMA)).toBeNull();
+  });
+
+  it("maps a 403 to a typed forbidden error", async () => {
+    const client = createXrmClient(createFakeXrm({ failWith: { status: 403, message: "denied" } }).xrm);
+    await expect(client.loadConfigValue(SCHEMA)).rejects.toMatchObject({ kind: "forbidden" });
+  });
+});
+
 describe("xrmClient getApprovalDetail contract", () => {
   const ID = "00000000-0000-0000-0000-00000000d001";
   const NAV = "msdyn_flow_approvalrelationship_approval";

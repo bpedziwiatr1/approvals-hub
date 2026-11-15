@@ -11,6 +11,8 @@ export interface RecordedRequest {
 
 export interface FakeXrmData {
   approvals?: ApprovalRow[];
+  /** Environment variable definitions; `currentValue` is the environment's own value row, if any. */
+  environmentVariables?: { schemaName: string; defaultValue?: string; currentValue?: string }[];
   /** Every request rejects with this error (e.g. a 403 privilege error). */
   failWith?: XrmErrorLike;
 }
@@ -69,6 +71,11 @@ export function createFakeXrm(data: FakeXrmData = {}) {
   const requests: RecordedRequest[] = [];
   const tables: Record<string, Entity[]> = {
     msdyn_flow_approval: (data.approvals ?? []) as unknown as Entity[],
+    environmentvariabledefinition: (data.environmentVariables ?? []).map((v) => ({
+      schemaname: v.schemaName,
+      defaultvalue: v.defaultValue ?? null,
+      environmentvariabledefinition_environmentvariablevalue: v.currentValue === undefined ? [] : [{ value: v.currentValue }],
+    })),
   };
 
   const xrm: XrmLike = {

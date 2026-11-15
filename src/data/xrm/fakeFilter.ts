@@ -2,7 +2,7 @@ import type { Entity } from "./xrmTypes";
 
 /**
  * Evaluates the subset of OData `$filter` the hub sends: `eq`/`ne` against string, number and null
- * literals, `contains(field,'x')`, `and`, `or` and parentheses. String comparison ignores case, like
+ * literals, `contains(field,'x')`, `startswith(field,'x')`, `and`, `or` and parentheses. String comparison ignores case, like
  * Dataverse's collation. Throws on anything else so an unsupported query fails a contract test loudly.
  */
 export function compileFilter(filter: string): (row: Entity) => boolean {
@@ -39,8 +39,8 @@ export function compileFilter(filter: string): (row: Entity) => boolean {
       expect(")");
       return inner;
     }
-    if (peek() === "contains") {
-      next();
+    if (peek() === "contains" || peek() === "startswith") {
+      const fn = next();
       expect("(");
       const haystack = value();
       expect(",");
@@ -49,7 +49,8 @@ export function compileFilter(filter: string): (row: Entity) => boolean {
       return (row) => {
         const h = haystack(row);
         const n = needle(row);
-        return typeof h === "string" && typeof n === "string" && h.toLowerCase().includes(n.toLowerCase());
+        if (typeof h !== "string" || typeof n !== "string") return false;
+        return fn === "contains" ? h.toLowerCase().includes(n.toLowerCase()) : h.toLowerCase().startsWith(n.toLowerCase());
       };
     }
     const left = value();

@@ -2,7 +2,7 @@ import { buildApproval, buildRequest, buildResponse, buildStep } from "./factori
 import { APPROVAL_STATUSCODE, type ApprovalRow } from "./xrm/dataverse";
 
 /** Local scenarios (`?scenario=`); the same synthetic rows feed mockClient and fakeXrm. */
-export const SCENARIO_NAMES = ["default", "multiStep", "longList", "statuses"] as const;
+export const SCENARIO_NAMES = ["default", "multiStep", "longList", "statuses", "scoped"] as const;
 export type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
 export function isScenarioName(value: string | null): value is ScenarioName {
@@ -30,9 +30,9 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
   switch (name) {
     case "default":
       return [
-        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a001", msdyn_flow_approval_title: "Contoso purchase order 1001", msdyn_flow_approval_details: "Please approve **purchase order 1001**.", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso")), buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(ANN, "Ann Contoso"), msdyn_flow_approvalresponse_comments: "Fine by me" })], statuscode: APPROVAL_STATUSCODE.pending, createdon: "2025-03-12T08:30:00Z" }),
-        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a002", msdyn_flow_approval_title: "Contoso travel request 2002", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse(who(ANN, "Ann Contoso"))], statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Approve", createdon: "2025-03-10T13:05:00Z" }),
-        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a003", msdyn_flow_approval_title: "Contoso contract renewal 3003", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(BOB, "Bob Contoso"), msdyn_flow_approvalresponse_response: "Reject", msdyn_flow_approvalresponse_comments: "Terms unclear" })], statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Reject", createdon: "2025-03-08T16:45:00Z" }),
+        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a001", msdyn_flow_approval_title: "Contoso purchase order 1001", msdyn_flow_approval_category: "Purchasing", msdyn_flow_approval_details: "Please approve **purchase order 1001**.", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso")), buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(ANN, "Ann Contoso"), msdyn_flow_approvalresponse_comments: "Fine by me" })], statuscode: APPROVAL_STATUSCODE.pending, createdon: "2025-03-12T08:30:00Z" }),
+        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a002", msdyn_flow_approval_title: "Contoso travel request 2002", msdyn_flow_approval_category: "Travel", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(ANN, "Ann Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse(who(ANN, "Ann Contoso"))], statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Approve", createdon: "2025-03-10T13:05:00Z" }),
+        buildApproval({ msdyn_flow_approvalid: "00000000-0000-0000-0000-00000000a003", msdyn_flow_approval_title: "Contoso contract renewal 3003", msdyn_flow_approval_category: "Legal", msdyn_flow_approvalrelationship_approvalrequests: [buildRequest(who(BOB, "Bob Contoso"))], msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ ...who(BOB, "Bob Contoso"), msdyn_flow_approvalresponse_response: "Reject", msdyn_flow_approvalresponse_comments: "Terms unclear" })], statuscode: APPROVAL_STATUSCODE.completed, msdyn_flow_approval_result: "Reject", createdon: "2025-03-08T16:45:00Z" }),
       ];
     case "multiStep":
       return [
@@ -95,6 +95,27 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
         }),
       );
     }
+    case "scoped": {
+      // Rows for Profile Scope checks: title forms, categories and tags the scope criteria must tell apart.
+      const rows: [string, string, string | null, number, string | null][] = [
+        ["Contoso PO 100", "Purchasing", "eu;urgent", APPROVAL_STATUSCODE.pending, null],
+        ["Contoso PO 200", "Purchasing", "us", APPROVAL_STATUSCODE.completed, "Approve"],
+        ["Contoso trip Berlin", "Travel", "eu", APPROVAL_STATUSCODE.completed, "Approve"],
+        ["Annual Contoso PO review", "Purchasing", null, APPROVAL_STATUSCODE.completed, "Reject"],
+        ["Contoso PO", "Legal", "eu", APPROVAL_STATUSCODE.pending, null],
+      ];
+      return rows.map(([title, category, tags, statuscode, result], i) =>
+        buildApproval({
+          msdyn_flow_approvalid: `00000000-0000-0000-0003-${String(i + 1).padStart(12, "0")}`,
+          msdyn_flow_approval_title: title,
+          msdyn_flow_approval_category: category,
+          msdyn_flow_approval_tags: tags,
+          statuscode,
+          msdyn_flow_approval_result: result,
+          createdon: new Date(Date.parse("2025-05-30T12:00:00Z") - i * 3_600_000).toISOString().replace(".000Z", "Z"),
+        }),
+      );
+    }
     case "longList": {
       const newest = Date.parse("2025-06-30T12:00:00Z");
       return Array.from({ length: LONG_LIST_SIZE }, (_, i) =>
@@ -108,3 +129,12 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
     }
   }
 }
+
+/** Profile configuration served by mockClient and the fakeXrm environment variable, for `?profile=` locally. */
+export const MOCK_CONFIG_JSON = JSON.stringify({
+  profiles: {
+    default: {},
+    purchasing: { pageTitle: "Purchasing approvals", pageSize: 50, accentColor: "#107c10", scope: { category: "Purchasing" } },
+    travel: { extends: "purchasing", pageTitle: "Travel approvals", accentColor: "#8e562e", defaultStatus: "approved", scope: { category: "Travel" } },
+  },
+});

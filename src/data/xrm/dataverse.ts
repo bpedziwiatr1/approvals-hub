@@ -6,6 +6,8 @@ export const APPROVAL = {
   id: "msdyn_flow_approvalid",
   title: "msdyn_flow_approval_title",
   result: "msdyn_flow_approval_result",
+  category: "msdyn_flow_approval_category",
+  tags: "msdyn_flow_approval_tags",
   statuscode: "statuscode",
   createdOn: "createdon",
   details: "msdyn_flow_approval_details",
@@ -37,6 +39,8 @@ export interface ApprovalRow {
   msdyn_flow_approval_result: string | null;
   statuscode: number;
   createdon: string;
+  msdyn_flow_approval_category?: string | null;
+  msdyn_flow_approval_tags?: string | null;
   msdyn_flow_approval_details?: string | null;
   msdyn_flow_approvalrelationship_approvalrequests?: ApprovalRequestRow[];
   msdyn_flow_approvalrelationship_approvalresponses?: ApprovalResponseRow[];
@@ -75,3 +79,10 @@ export interface ApprovalStepRow {
   msdyn_flow_approvalstep_result: string | null;
   msdyn_flow_approvalstep_stage: string | null;
 }
+
+export const ENVIRONMENT_VARIABLE = {
+  logicalName: "environmentvariabledefinition",
+  schemaName: "schemaname",
+  defaultValue: "defaultvalue",
+  valuesNavigation: "environmentvariabledefinition_environmentvariablevalue",
+} as const;

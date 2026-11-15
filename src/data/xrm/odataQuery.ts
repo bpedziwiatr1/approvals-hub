@@ -1,4 +1,4 @@
-import type { ApprovalQuery, ApprovalStatus, SortField } from "../dataClient";
+import type { ApprovalQuery, ApprovalStatus, ProfileScope, SortField } from "../dataClient";
 import { APPROVAL, APPROVAL_NAV, APPROVAL_STATUSCODE } from "./dataverse";
 
 const LIST_SELECT = [APPROVAL.id, APPROVAL.title, APPROVAL.result, APPROVAL.statuscode, APPROVAL.createdOn];
@@ -41,9 +41,23 @@ function statusCondition(status: ApprovalStatus): string {
   }
 }
 
-/** `$filter` for the query's title search and status set; null when nothing narrows the list. */
-export function buildFilter(query: ApprovalQuery): string | null {
+/** Conditions of a Profile Scope, one per criterion that is set; they are ANDed by the caller. */
+function scopeConditions(scope: ProfileScope): string[] {
   const parts: string[] = [];
+  if (scope.title) {
+    const { mode, value } = scope.title;
+    if (mode === "equals") parts.push(`${APPROVAL.title} eq ${literal(value)}`);
+    else if (mode === "startsWith") parts.push(`startswith(${APPROVAL.title},${literal(value)})`);
+    else parts.push(`contains(${APPROVAL.title},${literal(value)})`);
+  }
+  if (scope.category) parts.push(`${APPROVAL.category} eq ${literal(scope.category)}`);
+  if (scope.tags) parts.push(`contains(${APPROVAL.tags},${literal(scope.tags)})`);
+  return parts;
+}
+
+/** `$filter` for the query's Profile Scope, title search and status set, all ANDed; null when nothing narrows the list. */
+export function buildFilter(query: ApprovalQuery): string | null {
+  const parts: string[] = query.scope ? scopeConditions(query.scope) : [];
   if (query.title) parts.push(`contains(${APPROVAL.title},${literal(query.title)})`);
   if (query.statuses?.length) parts.push(`(${query.statuses.map(statusCondition).join(" or ")})`);
   return parts.length ? parts.join(" and ") : null;
