@@ -30,5 +30,20 @@
   "filter.search": "Szukaj po tytule",
   "filter.status": "Status",
   "config.invalid": "Konfiguracja jest nieprawidłowa, dlatego widoczne są ustawienia wbudowane. {{detail}}",
-  "config.unknownProfile": "Profil \"{{name}}\" nie istnieje, dlatego widoczny jest profil domyślny."
+  "config.unknownProfile": "Profil \"{{name}}\" nie istnieje, dlatego widoczny jest profil domyślny.",
+  "filter.owner": "Właściciel (ID użytkownika)",
+  "filter.approver": "Zatwierdzający (ID użytkownika)",
+  "filter.createdFrom": "Utworzono od",
+  "filter.createdTo": "Utworzono do",
+  "filter.assignedToMe": "Przypisane do mnie",
+  "filter.pendingOnly": "Tylko oczekujące",
+  "command.region": "Polecenia",
+  "command.refresh": "Odśwież",
+  "command.export": "Eksportuj CSV",
+  "command.summary": "Pokaż podsumowanie",
+  "export.error": "Nie udało się wyeksportować zatwierdzeń",
+  "summary.region": "Podsumowanie",
+  "summary.other": "Inne",
+  "summary.loading": "Liczenie zatwierdzeń",
+  "summary.error": "Nie udało się policzyć zatwierdzeń"
 }

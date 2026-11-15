@@ -162,6 +162,73 @@ describe("xrmClient loadConfigValue contract", () => {
   });
 });
 
+describe("xrmClient countByStatus and exportApprovals contract", () => {
+  it("counts with a minimal $select and the list $filter, in pages of 5000 and without a sort", async () => {
+    const fake = createFakeXrm({ approvals: [buildApproval()] });
+    await createXrmClient(fake.xrm).countByStatus({ title: "order", statuses: ["pending"] });
+
+    expect(fake.requests).toEqual([
+      {
+        entitySet: "msdyn_flow_approvals",
+        params: {
+          $select: "statuscode,msdyn_flow_approval_result",
+          $filter: "contains(msdyn_flow_approval_title,'order') and (statuscode eq 192350000 or statuscode eq 192350001 or statuscode eq 192350002)",
+        },
+        prefer: "odata.maxpagesize=5000",
+      },
+    ]);
+  });
+
+  it("counts every matching Approval across server pages, not only the first page", async () => {
+    const approvals = [
+      ...Array.from({ length: 5000 }, () => buildApproval({ statuscode: 192350001 })),
+      ...Array.from({ length: 3 }, () => buildApproval({ statuscode: 192350004, msdyn_flow_approval_result: "Reject" })),
+      buildApproval({ statuscode: 192350006 }),
+    ];
+    const fake = createFakeXrm({ approvals });
+    const counts = await createXrmClient(fake.xrm).countByStatus({});
+
+    expect(counts).toEqual({ pending: 5000, approved: 0, rejected: 3, completed: 0, cancelled: 1, expired: 0, abandoned: 0 });
+    expect(fake.requests).toHaveLength(2);
+    expect(fake.requests[1].params.$skiptoken).toBe("5000");
+  });
+
+  it("exports every matching Approval across server pages with the list $select and $orderby", async () => {
+    const approvals = Array.from({ length: 5001 }, (_, i) =>
+      buildApproval({
+        msdyn_flow_approval_title: `Export ${i}`,
+        createdon: `2025-01-01T00:${String(Math.floor(i / 60) % 60).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}Z`,
+      }),
+    );
+    const fake = createFakeXrm({ approvals });
+    const exported = [];
+    for await (const item of createXrmClient(fake.xrm).exportApprovals({ title: "Export" })) exported.push(item);
+
+    expect(exported).toHaveLength(5001);
+    expect(new Set(exported.map((i) => i.id)).size).toBe(5001);
+    expect(fake.requests).toHaveLength(2);
+    expect(fake.requests[0]).toEqual({
+      entitySet: "msdyn_flow_approvals",
+      params: {
+        $select: "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon",
+        $filter: "contains(msdyn_flow_approval_title,'Export')",
+        $orderby: "createdon desc",
+      },
+      prefer: "odata.maxpagesize=5000",
+    });
+    expect(fake.requests[1].params.$skiptoken).toBe("5000");
+  });
+
+  it("maps a forbidden or server failure during count and export to the typed DataError", async () => {
+    const forbidden = createXrmClient(createFakeXrm({ failWith: { status: 403, message: "missing privilege" } }).xrm);
+    await expect(forbidden.countByStatus({})).rejects.toMatchObject({ kind: "forbidden" });
+    const iterate = async () => {
+      for await (const _ of forbidden.exportApprovals({})) void _;
+    };
+    await expect(iterate()).rejects.toMatchObject({ kind: "forbidden" });
+  });
+});
+
 describe("xrmClient getApprovalDetail contract", () => {
   const ID = "00000000-0000-0000-0000-00000000d001";
   const NAV = "msdyn_flow_approvalrelationship_approval";
