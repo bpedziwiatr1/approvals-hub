@@ -1,0 +1,16 @@
+{
+  "app.title": "Approvals Hub",
+  "list.column.title": "Title",
+  "list.column.status": "Status",
+  "list.column.createdOn": "Created on",
+  "status.pending": "Pending",
+  "status.approved": "Approved",
+  "status.rejected": "Rejected",
+  "status.completed": "Completed",
+  "status.cancelled": "Cancelled",
+  "status.expired": "Expired",
+  "status.abandoned": "Abandoned",
+  "list.loading": "Loading approvals",
+  "list.empty": "No approvals found",
+  "list.error": "Could not load approvals"
+}

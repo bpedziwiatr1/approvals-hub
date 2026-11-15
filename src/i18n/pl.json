@@ -1,0 +1,16 @@
+{
+  "app.title": "Centrum zatwierdzeń",
+  "list.column.title": "Tytuł",
+  "list.column.status": "Status",
+  "list.column.createdOn": "Data utworzenia",
+  "status.pending": "Oczekuje",
+  "status.approved": "Zatwierdzone",
+  "status.rejected": "Odrzucone",
+  "status.completed": "Zakończone",
+  "status.cancelled": "Anulowane",
+  "status.expired": "Wygasłe",
+  "status.abandoned": "Porzucone",
+  "list.loading": "Ładowanie zatwierdzeń",
+  "list.empty": "Brak zatwierdzeń",
+  "list.error": "Nie udało się załadować zatwierdzeń"
+}

@@ -151,3 +151,7 @@ vite.config.ts.timestamp-*
 # Private local config and data (symlinks to ai-config, never commit)
 .specs/
 .claude/
+
+# Playwright
+test-results/
+playwright-report/
