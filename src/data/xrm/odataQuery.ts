@@ -101,6 +101,16 @@ export function buildListOptions(query: ApprovalQuery, currentUserId?: string): 
   return `?${params.join("&")}`;
 }
 
+const COUNT_SELECT = [APPROVAL.statuscode, APPROVAL.result];
+
+/** Query options for counting the Approvals that match the list query: the same $filter, only the columns that decide the status, no sort. */
+export function buildCountOptions(query: ApprovalQuery, currentUserId?: string): string {
+  const filter = buildFilter(query, currentUserId);
+  const params = [`$select=${COUNT_SELECT.join(",")}`];
+  if (filter) params.push(`$filter=${encodeURIComponent(filter)}`);
+  return `?${params.join("&")}`;
+}
+
 const DETAIL_SELECT = [...LIST_SELECT, APPROVAL.details];
 
 const DETAIL_EXPAND = [

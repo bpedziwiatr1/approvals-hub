@@ -36,5 +36,14 @@
   "filter.createdFrom": "Utworzono od",
   "filter.createdTo": "Utworzono do",
   "filter.assignedToMe": "Przypisane do mnie",
-  "filter.pendingOnly": "Tylko oczekujące"
+  "filter.pendingOnly": "Tylko oczekujące",
+  "command.region": "Polecenia",
+  "command.refresh": "Odśwież",
+  "command.export": "Eksportuj CSV",
+  "command.summary": "Pokaż podsumowanie",
+  "export.error": "Nie udało się wyeksportować zatwierdzeń",
+  "summary.region": "Podsumowanie",
+  "summary.other": "Inne",
+  "summary.loading": "Liczenie zatwierdzeń",
+  "summary.error": "Nie udało się policzyć zatwierdzeń"
 }

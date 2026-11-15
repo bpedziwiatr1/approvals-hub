@@ -36,5 +36,14 @@
   "filter.createdFrom": "Created from",
   "filter.createdTo": "Created to",
   "filter.assignedToMe": "Assigned to me",
-  "filter.pendingOnly": "Pending only"
+  "filter.pendingOnly": "Pending only",
+  "command.region": "Commands",
+  "command.refresh": "Refresh",
+  "command.export": "Export CSV",
+  "command.summary": "Show summary",
+  "export.error": "Could not export approvals",
+  "summary.region": "Summary",
+  "summary.other": "Other",
+  "summary.loading": "Counting approvals",
+  "summary.error": "Could not count approvals"
 }
