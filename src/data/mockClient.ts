@@ -1,25 +1,12 @@
-import { DataError, type ApprovalListItem, type ApprovalQuery, type DataClient, type StatusCounts } from "./dataClient";
-import { buildApprovalListItem } from "./factories";
+import { DataError, type ApprovalQuery, type DataClient, type StatusCounts } from "./dataClient";
+import { scenarioApprovals, type ScenarioName } from "./scenarios";
+import { mapApprovalListItem } from "./xrm/mappers";
 
-export type ScenarioName = "default";
+export { isScenarioName, type ScenarioName } from "./scenarios";
 
-function scenarioItems(name: ScenarioName): ApprovalListItem[] {
-  switch (name) {
-    case "default":
-      return [
-        buildApprovalListItem({ id: "00000000-0000-0000-0000-00000000a001", title: "Contoso purchase order 1001", status: "pending", createdOn: "2025-03-12T08:30:00Z" }),
-        buildApprovalListItem({ id: "00000000-0000-0000-0000-00000000a002", title: "Contoso travel request 2002", status: "approved", createdOn: "2025-03-10T13:05:00Z" }),
-        buildApprovalListItem({ id: "00000000-0000-0000-0000-00000000a003", title: "Contoso contract renewal 3003", status: "rejected", createdOn: "2025-03-08T16:45:00Z" }),
-      ];
-  }
-}
-
-export function isScenarioName(value: string | null): value is ScenarioName {
-  return value === "default";
-}
-
+/** In-memory DataClient for local development and UI tests; pages through continuation tokens like Dataverse. */
 export function createMockClient(scenario: ScenarioName): DataClient {
-  const all = scenarioItems(scenario);
+  const all = scenarioApprovals(scenario).map((row) => mapApprovalListItem({ ...row }));
   const matching = (query: ApprovalQuery) =>
     all.filter(
       (i) =>
@@ -29,7 +16,10 @@ export function createMockClient(scenario: ScenarioName): DataClient {
 
   return {
     async listApprovals(query, page) {
-      return { items: matching(query).slice(0, page.size), continuationToken: null };
+      const start = page.continuationToken ? Number(page.continuationToken) : 0;
+      const items = matching(query);
+      const end = start + page.size;
+      return { items: items.slice(start, end), continuationToken: end < items.length ? String(end) : null };
     },
     async countByStatus(query) {
       const counts: StatusCounts = { pending: 0, approved: 0, rejected: 0, completed: 0, cancelled: 0, expired: 0, abandoned: 0 };

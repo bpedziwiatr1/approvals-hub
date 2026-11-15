@@ -12,5 +12,7 @@
   "status.abandoned": "Abandoned",
   "list.loading": "Loading approvals",
   "list.empty": "No approvals found",
-  "list.error": "Could not load approvals"
+  "list.error": "Could not load approvals",
+  "list.region": "Approvals list",
+  "list.loadingMore": "Loading more approvals"
 }

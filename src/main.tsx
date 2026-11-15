@@ -1,13 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { createMockClient, isScenarioName } from "./data/mockClient";
+import { selectClient } from "./data/selectClient";
+import type { HostWindow } from "./data/xrm/xrmClient";
 import { resolveLang } from "./i18n";
 import { resolveTheme } from "./theme";
 
-const params = new URLSearchParams(window.location.search);
-const scenario = params.get("scenario");
-const client = createMockClient(isScenarioName(scenario) ? scenario : "default");
+const { client } = selectClient(window.location.search, window as unknown as HostWindow);
 const theme = resolveTheme(window.location.search, window.matchMedia("(prefers-color-scheme: dark)").matches);
 
 createRoot(document.getElementById("root")!).render(
