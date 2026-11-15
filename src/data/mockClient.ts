@@ -1,5 +1,6 @@
-import { DataError, type ApprovalQuery, type DataClient, type RecordRef, type StatusCounts } from "./dataClient";
-import { scenarioApprovals, type ScenarioName } from "./scenarios";
+import { DataError, type ApprovalQuery, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
+import { MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
+import type { ApprovalRow } from "./xrm/dataverse";
 import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
@@ -11,9 +12,23 @@ export function createMockClient(scenario: ScenarioName): MockClient {
   const openedRecords: RecordRef[] = [];
   const rows = scenarioApprovals(scenario);
   const all = rows.map((row) => mapApprovalListItem({ ...row }));
+  const inScope = (row: ApprovalRow, scope: ProfileScope | undefined) => {
+    if (!scope) return true;
+    const title = row.msdyn_flow_approval_title.toLowerCase();
+    const wanted = scope.title?.value.toLowerCase() ?? "";
+    const titleOk =
+      !scope.title ||
+      (scope.title.mode === "equals" ? title === wanted : scope.title.mode === "startsWith" ? title.startsWith(wanted) : title.includes(wanted));
+    return (
+      titleOk &&
+      (!scope.category || row.msdyn_flow_approval_category?.toLowerCase() === scope.category.toLowerCase()) &&
+      (!scope.tags || (row.msdyn_flow_approval_tags ?? "").toLowerCase().includes(scope.tags.toLowerCase()))
+    );
+  };
   const matching = (query: ApprovalQuery) =>
     all.filter(
-      (i) =>
+      (i, index) =>
+        inScope(rows[index], query.scope) &&
         (!query.title || i.title.toLowerCase().includes(query.title.toLowerCase())) &&
         (!query.statuses?.length || query.statuses.includes(i.status)),
     );
@@ -42,7 +57,7 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       return { id: "00000000-0000-0000-0000-0000000000f1", name: "Alex Contoso", languageId: 1033 };
     },
     async loadConfigValue() {
-      return null;
+      return MOCK_CONFIG_JSON;
     },
     openedRecords,
     async openRecord(record) {

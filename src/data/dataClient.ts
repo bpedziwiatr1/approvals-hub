@@ -13,7 +13,18 @@ export interface ApprovalListItem {
 
 export type SortField = "title" | "status" | "createdOn";
 
+export type TitleMatchMode = "equals" | "startsWith" | "contains";
+
+/** The fixed filter of a Profile; every criterion that is set must match. Applied to every query, never part of the URL. */
+export interface ProfileScope {
+  title?: { mode: TitleMatchMode; value: string };
+  category?: string;
+  /** Matched with `contains` against the Approval's tags. */
+  tags?: string;
+}
+
 export interface ApprovalQuery {
+  scope?: ProfileScope;
   title?: string;
   statuses?: ApprovalStatus[];
   createdFrom?: string;

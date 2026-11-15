@@ -43,7 +43,7 @@ describe("Approvals list", () => {
   it("shows the page title and column headers in Polish when lang is pl", async () => {
     render(<App client={createMockClient("default")} lang="pl" theme="light" />);
     expect(await screen.findByRole("heading", { name: "Centrum zatwierdzeń" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Tytuł/ })).toBeInTheDocument();
+    expect(await screen.findByRole("columnheader", { name: /Tytuł/ })).toBeInTheDocument();
   });
 });
 

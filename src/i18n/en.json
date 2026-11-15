@@ -31,5 +31,7 @@
   "detail.noRegarding": "No record could be identified for this approval",
   "detail.openRecordFailed": "Could not open the record",
   "filter.search": "Search by title",
-  "filter.status": "Status"
+  "filter.status": "Status",
+  "config.invalid": "The configuration is invalid, so the built-in defaults are shown. {{detail}}",
+  "config.unknownProfile": "Profile \"{{name}}\" does not exist, so the default profile is shown."
 }
