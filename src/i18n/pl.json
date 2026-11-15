@@ -16,5 +16,14 @@
   "list.region": "Lista zatwierdzeń",
   "list.loadingMore": "Ładowanie kolejnych zatwierdzeń",
   "filter.search": "Szukaj po tytule",
-  "filter.status": "Status"
+  "filter.status": "Status",
+  "command.region": "Polecenia",
+  "command.refresh": "Odśwież",
+  "command.export": "Eksportuj CSV",
+  "command.summary": "Pokaż podsumowanie",
+  "export.error": "Nie udało się wyeksportować zatwierdzeń",
+  "summary.region": "Podsumowanie",
+  "summary.other": "Inne",
+  "summary.loading": "Liczenie zatwierdzeń",
+  "summary.error": "Nie udało się policzyć zatwierdzeń"
 }

@@ -16,5 +16,14 @@
   "list.region": "Approvals list",
   "list.loadingMore": "Loading more approvals",
   "filter.search": "Search by title",
-  "filter.status": "Status"
+  "filter.status": "Status",
+  "command.region": "Commands",
+  "command.refresh": "Refresh",
+  "command.export": "Export CSV",
+  "command.summary": "Show summary",
+  "export.error": "Could not export approvals",
+  "summary.region": "Summary",
+  "summary.other": "Other",
+  "summary.loading": "Counting approvals",
+  "summary.error": "Could not count approvals"
 }

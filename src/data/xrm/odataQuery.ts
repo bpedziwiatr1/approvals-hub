@@ -58,3 +58,13 @@ export function buildListOptions(query: ApprovalQuery): string {
   params.push(`$orderby=${SORT_COLUMNS[sort.field]} ${sort.descending ? "desc" : "asc"}`);
   return `?${params.join("&")}`;
 }
+
+const COUNT_SELECT = [APPROVAL.statuscode, APPROVAL.result];
+
+/** Query options for counting the Approvals that match the list query: the same $filter, only the columns that decide the status, no sort. */
+export function buildCountOptions(query: ApprovalQuery): string {
+  const filter = buildFilter(query);
+  const params = [`$select=${COUNT_SELECT.join(",")}`];
+  if (filter) params.push(`$filter=${encodeURIComponent(filter)}`);
+  return `?${params.join("&")}`;
+}
