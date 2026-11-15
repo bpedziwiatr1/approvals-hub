@@ -1,8 +1,9 @@
 import { DataError, emptyStatusCounts, type DataClient } from "../dataClient";
 import { APPROVAL } from "./dataverse";
 import { toDataError } from "./errors";
-import { mapApprovalListItem } from "./mappers";
-import { buildCountOptions, buildListOptions } from "./odataQuery";
+import { mapApprovalDetail, mapApprovalListItem } from "./mappers";
+import { buildCountOptions, buildDetailOptions, buildListOptions, GUID } from "./odataQuery";
+import type { ApprovalRow } from "./dataverse";
 import { createFetchWebApi, type FetchLike } from "./fetchWebApi";
 import type { Entity, GlobalContextLike, RetrieveMultipleResult, XrmLike } from "./xrmTypes";
 
@@ -79,7 +80,12 @@ export function createXrmClient(xrm: XrmLike): DataClient {
       for await (const row of everyRow(buildCountOptions(query))) counts[mapApprovalListItem(row).status] += 1;
       return counts;
     },
-    getApprovalDetail: () => notYet("getApprovalDetail"),
+    async getApprovalDetail(approvalId) {
+      if (!GUID.test(approvalId)) throw new DataError("notFound", `Approval ${approvalId} not found`);
+      const result = await retrieve(APPROVAL.logicalName, buildDetailOptions(approvalId), 1);
+      if (result.entities.length === 0) throw new DataError("notFound", `Approval ${approvalId} not found`);
+      return mapApprovalDetail(result.entities[0] as unknown as ApprovalRow);
+    },
     async *exportApprovals(query) {
       for await (const row of everyRow(buildListOptions(query))) yield mapApprovalListItem(row);
     },

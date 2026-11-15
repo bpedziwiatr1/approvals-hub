@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DataError } from "../dataClient";
-import { buildApproval } from "../factories";
+import { buildApproval, buildRequest, buildResponse } from "../factories";
 import { createFakeXrm } from "./fakeXrm";
 import { createXrmClient } from "./xrmClient";
 
@@ -174,5 +174,65 @@ describe("xrmClient countByStatus and exportApprovals contract", () => {
       for await (const _ of forbidden.exportApprovals({})) void _;
     };
     await expect(iterate()).rejects.toMatchObject({ kind: "forbidden" });
+  });
+});
+
+describe("xrmClient getApprovalDetail contract", () => {
+  const ID = "00000000-0000-0000-0000-00000000d001";
+  const NAV = "msdyn_flow_approvalrelationship_approval";
+
+  it("fetches the Approval with its requests, responses and steps in one $expand request", async () => {
+    const fake = createFakeXrm({ approvals: [buildApproval({ msdyn_flow_approvalid: ID })] });
+
+    await createXrmClient(fake.xrm).getApprovalDetail(ID);
+
+    expect(fake.requests).toHaveLength(1);
+    const [request] = fake.requests;
+    expect(request.entitySet).toBe("msdyn_flow_approvals");
+    expect(request.params.$filter).toBe(`msdyn_flow_approvalid eq ${ID}`);
+    expect(request.params.$select).toBe(
+      "msdyn_flow_approvalid,msdyn_flow_approval_title,msdyn_flow_approval_result,statuscode,createdon,msdyn_flow_approval_details",
+    );
+    expect(request.params.$expand).toBe(
+      [
+        `${NAV}requests($select=_ownerid_value,msdyn_flow_approvalrequest_stepnumber,statuscode)`,
+        `${NAV}responses($select=_ownerid_value,msdyn_flow_approvalresponse_response,msdyn_flow_approvalresponse_comments,msdyn_flow_approvalresponse_stepnumber,createdon)`,
+        `${NAV}steps($select=msdyn_flow_approvalstep_number,msdyn_flow_approvalstep_result,msdyn_flow_approvalstep_stage)`,
+      ].join(","),
+    );
+  });
+
+  it("maps the expanded rows to steps with responses and pending Approvers", async () => {
+    const approver = "00000000-0000-0000-0000-0000000000a1";
+    const fake = createFakeXrm({
+      approvals: [
+        buildApproval({
+          msdyn_flow_approvalid: ID,
+          msdyn_flow_approval_details: "Please approve",
+          msdyn_flow_approvalrelationship_approvalrequests: [buildRequest({ _ownerid_value: approver })],
+          msdyn_flow_approvalrelationship_approvalresponses: [buildResponse({ msdyn_flow_approvalresponse_comments: "ok" })],
+        }),
+      ],
+    });
+
+    const detail = await createXrmClient(fake.xrm).getApprovalDetail(ID);
+
+    expect(detail.details).toBe("Please approve");
+    expect(detail.steps).toHaveLength(1);
+    expect(detail.steps[0].responses[0].comments).toBe("ok");
+    expect(detail.steps[0].pendingApprovers).toEqual([{ id: approver, name: approver }]);
+  });
+
+  it("rejects with notFound when the Approval does not exist or the id is not a GUID", async () => {
+    const fake = createFakeXrm({ approvals: [] });
+    const client = createXrmClient(fake.xrm);
+    await expect(client.getApprovalDetail(ID)).rejects.toMatchObject({ name: "DataError", kind: "notFound" });
+    await expect(client.getApprovalDetail("x' or 1 eq 1")).rejects.toMatchObject({ kind: "notFound" });
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it("maps a 403 to forbidden", async () => {
+    const client = createXrmClient(createFakeXrm({ failWith: { status: 403, message: "denied" } }).xrm);
+    await expect(client.getApprovalDetail(ID)).rejects.toMatchObject({ kind: "forbidden" });
   });
 });

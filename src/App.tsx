@@ -13,6 +13,7 @@ import {
   TableHeaderCell,
   TableRow,
   makeStyles,
+  mergeClasses,
   tokens,
 } from "@fluentui/react-components";
 import { ArrowClockwise16Regular, ArrowDownload16Regular } from "@fluentui/react-icons";
@@ -21,6 +22,7 @@ import { I18nextProvider, useTranslation } from "react-i18next";
 import type { ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
 import { toTiles, type SummaryTiles as Tiles } from "./data/statusTiles";
 import { downloadCsv, toCsv } from "./export/csv";
+import { DetailPane } from "./detail/DetailPane";
 import { STATUS_ORDER, readFilters, writeFilters, type Filters } from "./filters/urlState";
 import { StatusBadge } from "./StatusBadge";
 import { useDebouncedValue } from "./useDebouncedValue";
@@ -70,7 +72,9 @@ const useStyles = makeStyles({
   search: { minWidth: "280px" },
   statuses: { display: "flex", flexWrap: "wrap", border: "none", margin: 0, padding: 0 },
   header: { position: "sticky", top: 0, zIndex: 1, backgroundColor: tokens.colorNeutralBackground1 },
-  row: { height: `${ROW_HEIGHT}px` },
+  row: { height: `${ROW_HEIGHT}px`, cursor: "pointer" },
+  selected: { backgroundColor: tokens.colorNeutralBackground1Selected },
+  body: { flex: "1 1 auto", minHeight: 0, display: "flex" },
   more: { padding: tokens.spacingVerticalM },
 });
 
@@ -101,7 +105,7 @@ interface ListState {
 const INITIAL: ListState = { items: null, continuationToken: null, loadingMore: false, failed: false };
 
 /** Loads the list one server page at a time; `loadMore` fetches the next page when there is one. */
-function useApprovalPages(client: DataClient, query: ApprovalQuery) {
+function useApprovalPages(client: DataClient, query: ApprovalQuery, reloadKey: number) {
   const [state, setState] = useState<ListState>(INITIAL);
   const inFlight = useRef(false);
   const generation = useRef(0);
@@ -124,7 +128,7 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery) {
       generation.current += 1;
       inFlight.current = false;
     };
-  }, [client, query]);
+  }, [client, query, reloadKey]);
 
   const loadMore = useCallback(() => {
     const token = state.continuationToken;
@@ -171,12 +175,12 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
   const toggleStatus = (status: Filters["statuses"][number], checked: boolean) =>
     setFilters((f) => ({ ...f, statuses: checked ? [...f.statuses, status] : f.statuses.filter((s) => s !== status) }));
 
-  // Refresh remounts the list and the summary, so both load again from the server.
+  // Refresh bumps refreshKey: the summary remounts and the list and open detail load again, the selection stays.
   const [refreshKey, setRefreshKey] = useState(0);
   const [showSummary, setShowSummary] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
-  const pageKey = `${title}|${statusKey}|${refreshKey}`;
+  const pageKey = `${title}|${statusKey}`;
 
   // Exports every Approval matching the applied query, not only the rows loaded in the list.
   const exportCsv = async () => {
@@ -206,7 +210,7 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
         <Switch label={t("command.summary")} checked={showSummary} onChange={(_, data) => setShowSummary(data.checked)} />
         {exportFailed && <span role="alert">{t("export.error")}</span>}
       </div>
-      {showSummary && <SummaryTiles key={`summary|${pageKey}`} client={client} query={query} />}
+      {showSummary && <SummaryTiles key={`summary|${pageKey}|${refreshKey}`} client={client} query={query} />}
       <div className={styles.filterBar}>
         <Input
           type="search"
@@ -224,7 +228,7 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
         </fieldset>
       </div>
       {/* Remounted per query: a new filter starts at the top of a fresh list. */}
-      <ApprovalList key={pageKey} client={client} lang={lang} query={query} />
+      <ApprovalList key={pageKey} client={client} lang={lang} query={query} reloadKey={refreshKey} />
     </main>
   );
 }
@@ -268,10 +272,11 @@ function SummaryTiles({ client, query }: { client: DataClient; query: ApprovalQu
   );
 }
 
-function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang; query: ApprovalQuery }) {
+function ApprovalList({ client, lang, query, reloadKey }: { client: DataClient; lang: Lang; query: ApprovalQuery; reloadKey: number }) {
   const styles = useStyles();
   const { t } = useTranslation();
-  const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client, query);
+  const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client, query, reloadKey);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scroll, setScroll] = useState({ top: 0, height: FALLBACK_VIEWPORT_HEIGHT });
 
   const count = items?.length ?? 0;
@@ -298,6 +303,7 @@ function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang;
       ) : items.length === 0 ? (
         <p>{t("list.empty")}</p>
       ) : (
+        <div className={styles.body}>
         <div role="region" aria-label={t("list.region")} className={styles.scroller} onScroll={onScroll}>
           <Table role="grid" aria-label={t("app.title")} aria-rowcount={continuationToken ? -1 : count + 1}>
             <TableHeader className={styles.header}>
@@ -310,7 +316,20 @@ function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang;
             <TableBody>
               {start > 0 && <Spacer height={start * ROW_HEIGHT} />}
               {items.slice(start, end).map((item, i) => (
-                <TableRow key={item.id} className={styles.row} aria-rowindex={start + i + 2}>
+                <TableRow
+                  key={item.id}
+                  className={mergeClasses(styles.row, item.id === selectedId && styles.selected)}
+                  aria-rowindex={start + i + 2}
+                  aria-selected={item.id === selectedId}
+                  tabIndex={0}
+                  onClick={() => setSelectedId(item.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedId(item.id);
+                    }
+                  }}
+                >
                   <TableCell>
                     <TableCellLayout truncate>{item.title}</TableCellLayout>
                   </TableCell>
@@ -333,6 +352,8 @@ function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang;
               {t("list.error")}
             </p>
           )}
+        </div>
+        <DetailPane key={`${selectedId}|${reloadKey}`} client={client} approvalId={selectedId} lang={lang} />
         </div>
       )}
     </>
