@@ -88,9 +88,9 @@ describe("Profile Scope", () => {
   it("has no control that removes it", async () => {
     setUrl("?profile=purchasing");
     render(<App client={createMockClient("default")} lang="en" theme="light" />);
-    await screen.findByRole("grid");
-    // Only the page commands exist; nothing that removes or edits the scope.
-    expect(screen.queryAllByRole("button").map((b) => b.textContent)).toEqual(["Refresh", "Export CSV"]);
+    const grid = await screen.findByRole("grid");
+    // Outside the grid (whose headers sort) only the page commands exist; nothing that removes or edits the scope.
+    expect(screen.queryAllByRole("button").filter((b) => !grid.contains(b)).map((b) => b.textContent)).toEqual(["Refresh", "Export CSV"]);
     expect(screen.queryByText(/Purchasing$/)).toBeNull();
   });
 });

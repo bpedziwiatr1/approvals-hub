@@ -1,5 +1,6 @@
 {
   "app.title": "Approvals Hub",
+  "list.selectRow": "Select {{title}}",
   "list.column.title": "Title",
   "list.column.status": "Status",
   "list.column.createdOn": "Created on",

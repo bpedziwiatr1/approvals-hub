@@ -19,14 +19,14 @@ export function deriveStatus(statuscode: number, result: string | null): { statu
   return { status, outcome: status === "completed" ? result?.trim() || null : null };
 }
 
-const text = (value: unknown): string | null => (typeof value === "string" ? value : null);
+const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
 const FORMATTED = "@OData.Community.Display.V1.FormattedValue";
 
 /** The user a lookup column points at, named by its formatted value (their id when the name is not annotated). */
 function userOf(row: Entity, column: string): Approver | null {
-  const id = text(row[column]);
-  return id ? { id, name: text(row[`${column}${FORMATTED}`]) || id } : null;
+  const id = stringOrNull(row[column]);
+  return id ? { id, name: stringOrNull(row[`${column}${FORMATTED}`]) || id } : null;
 }
 
 /** The latest of the expanded Approval Responses, which is the last decision on the Approval. */
@@ -35,16 +35,16 @@ function lastDecisionOf(row: Entity): LastDecision | null {
   const latest = responses.reduce<Entity | null>((best, r) => (best === null || Date.parse(String(r.createdon)) > Date.parse(String(best.createdon)) ? r : best), null);
   const approver = latest && userOf(latest, "_ownerid_value");
   if (!latest || !approver) return null;
-  return { approver, response: text(latest.msdyn_flow_approvalresponse_response) ?? "", decidedOn: new Date(String(latest.createdon)).toISOString() };
+  return { approver, response: stringOrNull(latest.msdyn_flow_approvalresponse_response) ?? "", decidedOn: new Date(String(latest.createdon)).toISOString() };
 }
 
 /** One msdyn_flow_approval row (list columns) to an Approval list item. */
 export function mapApprovalListItem(row: Entity): ApprovalListItem {
-  const { status, outcome } = deriveStatus(Number(row[APPROVAL.statuscode]), text(row[APPROVAL.result]));
+  const { status, outcome } = deriveStatus(Number(row[APPROVAL.statuscode]), stringOrNull(row[APPROVAL.result]));
   const step = row[APPROVAL.currentStep];
   return {
     id: String(row[APPROVAL.id]),
-    title: text(row[APPROVAL.title]) ?? "",
+    title: stringOrNull(row[APPROVAL.title]) ?? "",
     status,
     outcome,
     createdOn: String(row[APPROVAL.createdOn]),

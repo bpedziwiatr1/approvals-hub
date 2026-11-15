@@ -1,5 +1,6 @@
 {
   "app.title": "Centrum zatwierdzeń",
+  "list.selectRow": "Zaznacz: {{title}}",
   "list.column.title": "Tytuł",
   "list.column.status": "Status",
   "list.column.createdOn": "Data utworzenia",

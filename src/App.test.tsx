@@ -16,7 +16,7 @@ describe("Approvals list", () => {
     expect(within(grid).getByText("Pending")).toBeInTheDocument();
     expect(within(grid).getByText("Approved")).toBeInTheDocument();
     expect(within(grid).getByText("Rejected")).toBeInTheDocument();
-    expect(within(grid).getAllByText(/2025/)).toHaveLength(3);
+    expect(within(grid).getAllByText(/^[A-Z][a-z]{2} \d{1,2}, 2025/)).toHaveLength(3);
   });
 
   it("renders only a window of a long list and loads the next server page only when scrolled near the end", async () => {
