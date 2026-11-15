@@ -5,6 +5,7 @@ import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
 
 export { isScenarioName, type ScenarioName } from "./scenarios";
 
+const SLOW_DELAY_MS = 1500;
 const sameId = (a: string | undefined, b: string) => a?.toLowerCase() === b.toLowerCase();
 const ACTIVE = 0;
 
@@ -45,8 +46,18 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       )
       .map(({ item }) => item);
 
+  // Failure-mode scenarios: noPermission always refuses, serverError fails the first list call only (so Retry recovers), slow answers late.
+  // Calls made in the same tick (React StrictMode mounts effects twice in dev) count as one attempt.
+  let attempts = 0;
+  let sameTick = false;
   return {
     async listApprovals(query, page) {
+      if (!sameTick) attempts += 1;
+      sameTick = true;
+      setTimeout(() => (sameTick = false), 0);
+      if (scenario === "noPermission") throw new DataError("forbidden", "Access is denied");
+      if (scenario === "serverError" && attempts === 1) throw new DataError("server", "Internal server error");
+      if (scenario === "slow") await new Promise((resolve) => setTimeout(resolve, SLOW_DELAY_MS));
       const start = page.continuationToken ? Number(page.continuationToken) : 0;
       const items = matching(query);
       const end = start + page.size;
