@@ -18,6 +18,19 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    // Reason-to-change boundaries: no sprawling source files; the data layer knows nothing of the UI.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: { "max-lines": ["error", { max: 250, skipBlankLines: true, skipComments: true }] },
+  },
+  {
+    files: ["src/data/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{ group: ["**/grid/*", "**/detail/*", "**/filters/*", "**/page/*", "**/summary/*", "**/App", "**/App.tsx"], message: "src/data must not import UI modules." }] }],
+    },
+  },
+  {
     // No focused or skipped tests.
     files: ["**/*.test.{ts,tsx,mjs}", "e2e/**/*.ts"],
     rules: {
