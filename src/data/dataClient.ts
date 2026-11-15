@@ -36,8 +36,38 @@ export interface ApprovalPage {
 
 export type StatusCounts = Record<ApprovalStatus, number>;
 
+export interface Approver {
+  id: string;
+  name: string;
+}
+
+/** One Approver's decision on an Approval; `response` is the option text as stored (custom options included). */
+export interface ApprovalResponse {
+  approver: Approver;
+  response: string;
+  comments: string | null;
+  /** ISO 8601, UTC. */
+  respondedOn: string;
+}
+
+export interface ApprovalStepDetail {
+  /** Step number; 0 for the implicit single step of an Approval without step rows. */
+  number: number;
+  /** True when no Approval Step row exists and the step is synthesised. */
+  implicit: boolean;
+  stage: string | null;
+  result: string | null;
+  responses: ApprovalResponse[];
+  /** Approvers with an active Approval Request in this step who have not responded yet. */
+  pendingApprovers: Approver[];
+  /** Approvers whose Approval Request was reassigned to someone else. */
+  reassignedApprovers: Approver[];
+}
+
 export interface ApprovalDetail extends ApprovalListItem {
+  /** Markdown, as written by the flow. */
   details: string;
+  steps: ApprovalStepDetail[];
 }
 
 export interface CurrentUser {
