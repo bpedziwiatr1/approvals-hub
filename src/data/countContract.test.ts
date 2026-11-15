@@ -18,6 +18,8 @@ const CASES: [string, ApprovalQuery, Partial<StatusCounts>][] = [
   ["title narrows the counts", { title: "ALPH" }, { pending: 1 }],
   ["statuses narrow the counts", { statuses: ["cancelled", "expired"] }, { cancelled: 1, expired: 1 }],
   ["title and statuses are ANDed", { title: "e", statuses: ["approved", "cancelled"] }, { approved: 2, cancelled: 1 }],
+  ["a Profile Scope narrows the counts", { scope: { title: { mode: "startsWith", value: "Gamma" } } }, { pending: 1 }],
+  ["a Profile Scope is ANDed with the other filters", { scope: { title: { mode: "contains", value: "e" } }, statuses: ["approved"] }, { approved: 2 }],
   ["no match gives zeros", { title: "no such approval" }, {}],
 ];
 

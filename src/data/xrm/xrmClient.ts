@@ -1,8 +1,8 @@
 import { DataError, emptyStatusCounts, type DataClient } from "../dataClient";
 import { APPROVAL, ENVIRONMENT_VARIABLE as ENV_VAR } from "./dataverse";
 import { toDataError } from "./errors";
-import { mapApprovalDetail, mapApprovalListItem } from "./mappers";
-import { buildCountOptions, buildDetailOptions, buildListOptions, GUID } from "./odataQuery";
+import { deriveStatus, mapApprovalDetail, mapApprovalListItem } from "./mappers";
+import { buildCountOptions, buildDetailOptions, buildListOptions, COUNT_ALIAS, GUID } from "./odataQuery";
 import type { ApprovalRow } from "./dataverse";
 import { createFetchWebApi, type FetchLike } from "./fetchWebApi";
 import type { Entity, GlobalContextLike, RetrieveMultipleResult, XrmLike } from "./xrmTypes";
@@ -48,7 +48,7 @@ const MAX_PAGE_SIZE = 5000;
 
 /** DataClient backed by the model-driven app's Xrm.WebApi, running as the signed-in user. */
 export function createXrmClient(xrm: XrmLike): DataClient {
-  const retrieve = async (logicalName: string, options: string, pageSize: number): Promise<RetrieveMultipleResult> => {
+  const retrieve = async (logicalName: string, options: string, pageSize?: number): Promise<RetrieveMultipleResult> => {
     try {
       return await xrm.WebApi.retrieveMultipleRecords(logicalName, options, pageSize);
     } catch (error) {
@@ -81,7 +81,8 @@ export function createXrmClient(xrm: XrmLike): DataClient {
     },
     async countByStatus(query) {
       const counts = emptyStatusCounts();
-      for await (const row of everyRow(buildCountOptions(query, query.assignedToMe ? currentUserId() : undefined))) counts[mapApprovalListItem(row).status] += 1;
+      const groups = await retrieve(APPROVAL.logicalName, buildCountOptions(query, query.assignedToMe ? currentUserId() : undefined));
+      for (const group of groups.entities) counts[deriveStatus(Number(group[APPROVAL.statuscode]), (group[APPROVAL.result] as string | null) ?? null).status] += Number(group[COUNT_ALIAS]);
       return counts;
     },
     async getApprovalDetail(approvalId) {

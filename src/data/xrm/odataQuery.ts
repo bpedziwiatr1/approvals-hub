@@ -91,14 +91,17 @@ export function buildListOptions(query: ApprovalQuery, currentUserId?: string): 
   return `?${params.join("&")}`;
 }
 
-const COUNT_SELECT = [APPROVAL.statuscode, APPROVAL.result];
+/** Alias of the row count in the rows `buildCountOptions` asks for. */
+export const COUNT_ALIAS = "count";
 
-/** Query options for counting the Approvals that match the list query: the same $filter, only the columns that decide the status, no sort. */
+/**
+ * Query options for counting the Approvals that match the list query, in one request: the same filter, grouped by the two columns that decide
+ * the display status, with the number of Approvals per group. No rows are paged; the caller maps each group to its status.
+ */
 export function buildCountOptions(query: ApprovalQuery, currentUserId?: string): string {
   const filter = buildFilter(query, currentUserId);
-  const params = [`$select=${COUNT_SELECT.join(",")}`];
-  if (filter) params.push(`$filter=${encodeURIComponent(filter)}`);
-  return `?${params.join("&")}`;
+  const groups = `groupby((${APPROVAL.statuscode},${APPROVAL.result}),aggregate($count as ${COUNT_ALIAS}))`;
+  return `?$apply=${encodeURIComponent(filter ? `filter(${filter})/${groups}` : groups)}`;
 }
 
 const DETAIL_SELECT = [...LIST_SELECT, APPROVAL.details, APPROVAL.itemLink];

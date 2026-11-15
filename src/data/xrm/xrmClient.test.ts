@@ -163,7 +163,7 @@ describe("xrmClient loadConfigValue contract", () => {
 });
 
 describe("xrmClient countByStatus and exportApprovals contract", () => {
-  it("counts with a minimal $select and the list $filter, in pages of 5000 and without a sort", async () => {
+  it("counts with one aggregate request: the list $filter, grouped by statuscode and result, no rows paged", async () => {
     const fake = createFakeXrm({ approvals: [buildApproval()] });
     await createXrmClient(fake.xrm).countByStatus({ title: "order", statuses: ["pending"] });
 
@@ -171,26 +171,38 @@ describe("xrmClient countByStatus and exportApprovals contract", () => {
       {
         entitySet: "msdyn_flow_approvals",
         params: {
-          $select: "statuscode,msdyn_flow_approval_result",
-          $filter: "contains(msdyn_flow_approval_title,'order') and (statuscode eq 192350000 or statuscode eq 192350001 or statuscode eq 192350002)",
+          $apply:
+            "filter(contains(msdyn_flow_approval_title,'order') and (statuscode eq 192350000 or statuscode eq 192350001 or statuscode eq 192350002))" +
+            "/groupby((statuscode,msdyn_flow_approval_result),aggregate($count as count))",
         },
-        prefer: "odata.maxpagesize=5000",
+        prefer: null,
       },
     ]);
   });
 
-  it("counts every matching Approval across server pages, not only the first page", async () => {
+  it("applies no filter when nothing narrows the list", async () => {
+    const fake = createFakeXrm({ approvals: [buildApproval()] });
+    await createXrmClient(fake.xrm).countByStatus({});
+    expect(fake.requests[0].params.$apply).toBe("groupby((statuscode,msdyn_flow_approval_result),aggregate($count as count))");
+  });
+
+  it("counts every matching Approval in one request, however many rows there are", async () => {
     const approvals = [
-      ...Array.from({ length: 5000 }, () => buildApproval({ statuscode: 192350001 })),
+      ...Array.from({ length: 5001 }, () => buildApproval({ statuscode: 192350001 })),
       ...Array.from({ length: 3 }, () => buildApproval({ statuscode: 192350004, msdyn_flow_approval_result: "Reject" })),
+      buildApproval({ statuscode: 192350004, msdyn_flow_approval_result: "Rejected" }),
       buildApproval({ statuscode: 192350006 }),
     ];
     const fake = createFakeXrm({ approvals });
     const counts = await createXrmClient(fake.xrm).countByStatus({});
 
-    expect(counts).toEqual({ pending: 5000, approved: 0, rejected: 3, completed: 0, cancelled: 1, expired: 0, abandoned: 0 });
-    expect(fake.requests).toHaveLength(2);
-    expect(fake.requests[1].params.$skiptoken).toBe("5000");
+    expect(counts).toEqual({ pending: 5001, approved: 0, rejected: 4, completed: 0, cancelled: 1, expired: 0, abandoned: 0 });
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it("reports a count over the aggregate record limit of Dataverse as a server error instead of a wrong number", async () => {
+    const fake = createFakeXrm({ approvals: Array.from({ length: 50_001 }, () => buildApproval()) });
+    await expect(createXrmClient(fake.xrm).countByStatus({})).rejects.toBeInstanceOf(DataError);
   });
 
   it("exports every matching Approval across server pages with the list $select and $orderby", async () => {

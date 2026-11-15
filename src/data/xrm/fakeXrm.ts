@@ -19,6 +19,7 @@ export interface FakeXrmData {
   failWith?: XrmErrorLike;
 }
 
+const AGGREGATE_LIMIT = 50_000;
 const BASE_URL = "https://contoso.crm.dynamics.com/api/data/v9.2/";
 
 function parseOptions(options: string | undefined): Record<string, string> {
@@ -53,6 +54,28 @@ function applyOrderBy(rows: Entity[], orderby: string | undefined): Entity[] {
 function applySelect(row: Entity, select: string | undefined): Entity {
   if (!select) return { ...row };
   return Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null]));
+}
+
+/**
+ * `$apply=[filter(<$filter>)/]groupby((a,b),aggregate($count as alias))`: one row per distinct (a, b) with the number of rows in it.
+ * Like Dataverse, an aggregate answers in one page and refuses to aggregate more than 50 000 rows.
+ */
+function applyAggregate(rows: Entity[], apply: string): Entity[] {
+  const match = /^(?:filter\((.*)\)\/)?groupby\(\(([^)]*)\),aggregate\(\$count as (\w+)\)\)$/.exec(apply);
+  if (!match) throw new Error(`Unsupported $apply: ${apply}`);
+  const [, filter, columns, alias] = match;
+  const matching = filter ? rows.filter(compileFilter(filter)) : rows;
+  if (matching.length > AGGREGATE_LIMIT) throw { status: 400, message: `The maximum record limit of ${AGGREGATE_LIMIT} for aggregate operations is exceeded.` } satisfies XrmErrorLike;
+  const fields = columns.split(",");
+  const groups = new Map<string, Entity>();
+  for (const row of matching) {
+    const group = Object.fromEntries(fields.map((f) => [f, row[f] ?? null]));
+    const key = JSON.stringify(group);
+    const existing = groups.get(key);
+    if (existing) (existing[alias] as number) += 1;
+    else groups.set(key, { ...group, [alias]: 1 });
+  }
+  return [...groups.values()];
 }
 
 /** Adds each expanded navigation property of the source row, limited to its own $select. */
@@ -92,6 +115,7 @@ export function createFakeXrm(data: FakeXrmData = {}) {
 
         const { $skiptoken, ...query } = params;
         const rows = tables[entityLogicalName] ?? [];
+        if (query.$apply) return { entities: applyAggregate(rows, query.$apply) };
         const sorted = applyOrderBy(query.$filter ? rows.filter(compileFilter(query.$filter)) : rows, query.$orderby);
         const start = $skiptoken ? Number($skiptoken) : 0;
         const end = maxPageSize ? start + maxPageSize : sorted.length;
