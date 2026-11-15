@@ -14,6 +14,9 @@
   <FormFactor>1</FormFactor>
   <ClientType>4</ClientType>
   <NavigationType>0</NavigationType>
+  <AppModuleComponents>
+    <AppModuleComponent type="62" schemaName="bpt_ApprovalsHub" />
+  </AppModuleComponents>
   <LocalizedNames>
     <LocalizedName description="Approvals Hub" languagecode="1033" />
   </LocalizedNames>
