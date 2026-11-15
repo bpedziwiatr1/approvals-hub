@@ -40,6 +40,10 @@ _Avoid_: Fixed filter, approval type, category filter
 The user whose flow connection created the Approval; not necessarily the person who asked for it.
 _Avoid_: Creator, requestor, author
 
+**Display Status**:
+The label an Approval shows in the list and the status filter (Pending, Approved, Rejected, Completed, Cancelled, Expired, Abandoned), derived from its stored status code and result text and never stored. Approved and Rejected are the Outcomes Approve and Reject; any other Outcome shows as Completed. In code it is `ApprovalStatus`, defined by the one table in `src/data/displayStatus.ts`.
+_Avoid_: Status (bare), state
+
 **Outcome**:
 The final result of an Approval once it is completed (one of its response options, or cancelled).
-_Avoid_: Status, result, decision
+_Avoid_: Status (use Display Status for the derived label), result, decision

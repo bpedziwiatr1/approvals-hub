@@ -1,4 +1,4 @@
-import { DataError, type ApprovalQuery, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
+import { DataError, emptyStatusCounts, type ApprovalQuery, type DataClient, type ProfileScope, type RecordRef, type StatusCounts } from "./dataClient";
 import { CURRENT_USER_ID, MOCK_CONFIG_JSON, scenarioApprovals, type ScenarioName } from "./scenarios";
 import type { ApprovalRow } from "./xrm/dataverse";
 import { mapApprovalDetail, mapApprovalListItem } from "./xrm/mappers";
@@ -64,7 +64,7 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       return { items: items.slice(start, end), continuationToken: end < items.length ? String(end) : null };
     },
     async countByStatus(query) {
-      const counts: StatusCounts = { pending: 0, approved: 0, rejected: 0, completed: 0, cancelled: 0, expired: 0, abandoned: 0 };
+      const counts: StatusCounts = emptyStatusCounts();
       for (const i of matching(query)) counts[i.status] += 1;
       return counts;
     },

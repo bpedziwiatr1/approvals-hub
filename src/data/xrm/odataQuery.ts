@@ -1,5 +1,6 @@
 import type { ApprovalQuery, ApprovalStatus, ProfileScope, SortField } from "../dataClient";
-import { APPROVAL, APPROVAL_NAV, APPROVAL_STATUSCODE, REQUEST_STATECODE_ACTIVE } from "./dataverse";
+import { APPROVE_RESULTS, DISPLAY_STATUSES, REJECT_RESULTS } from "../displayStatus";
+import { APPROVAL, APPROVAL_NAV, REQUEST_STATECODE_ACTIVE } from "./dataverse";
 
 const LIST_SELECT = [APPROVAL.id, APPROVAL.title, APPROVAL.result, APPROVAL.statuscode, APPROVAL.createdOn];
 
@@ -16,29 +17,18 @@ const resultIsNot = (value: string) => `${APPROVAL.result} ne ${literal(value)}`
 const anyOf = (conditions: string[]) => `(${conditions.join(" or ")})`;
 
 /**
- * Condition for one display status (unparenthesised; `and` binds tighter than the `or` joining statuses); the inverse of deriveStatus. String comparisons rely on
- * Dataverse's case-insensitive collation, so `Approve`, `approve` and `Approved` all match.
+ * Condition for one display status (unparenthesised; `and` binds tighter than the `or` joining statuses); the inverse of deriveStatus,
+ * built from the same DISPLAY_STATUSES table. String comparisons rely on Dataverse's case-insensitive collation, so `Approve`, `approve` and `Approved` all match.
  */
 function statusCondition(status: ApprovalStatus): string {
-  const { completed } = APPROVAL_STATUSCODE;
-  switch (status) {
-    case "pending":
-      return [APPROVAL_STATUSCODE.created, APPROVAL_STATUSCODE.pending, APPROVAL_STATUSCODE.suspended].map(statusIs).join(" or ");
-    case "approved":
-      return `${statusIs(completed)} and ${anyOf([resultIs("Approve"), resultIs("Approved")])}`;
-    case "rejected":
-      return `${statusIs(completed)} and ${anyOf([resultIs("Reject"), resultIs("Rejected")])}`;
-    case "completed": {
-      const neither = ["Approve", "Approved", "Reject", "Rejected"].map(resultIsNot).join(" and ");
-      return `${statusIs(completed)} and (${APPROVAL.result} eq null or (${neither}))`;
-    }
-    case "cancelled":
-      return statusIs(APPROVAL_STATUSCODE.cancelled);
-    case "expired":
-      return statusIs(APPROVAL_STATUSCODE.expired);
-    case "abandoned":
-      return statusIs(APPROVAL_STATUSCODE.abandoned);
+  const entry = DISPLAY_STATUSES.find((s) => s.status === status)!;
+  const codes = entry.statuscodes.map(statusIs).join(" or ");
+  if (entry.results === undefined) return codes;
+  if (entry.results === "other") {
+    const neither = [...APPROVE_RESULTS, ...REJECT_RESULTS].map(resultIsNot).join(" and ");
+    return `${codes} and (${APPROVAL.result} eq null or (${neither}))`;
   }
+  return `${codes} and ${anyOf(entry.results.map(resultIs))}`;
 }
 
 /** GUIDs go into the filter unquoted, so anything else is refused rather than escaped. */

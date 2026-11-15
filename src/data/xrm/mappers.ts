@@ -1,32 +1,22 @@
 import type { ApprovalDetail, ApprovalListItem, ApprovalResponse, ApprovalStatus, ApprovalStepDetail, Approver } from "../dataClient";
 import { resolveRegarding } from "../regarding";
-import { APPROVAL, APPROVAL_STATUSCODE, REQUEST_STATUSCODE, type ApprovalRequestRow, type ApprovalResponseRow, type ApprovalRow, type ApprovalStepRow } from "./dataverse";
+import { DISPLAY_STATUSES } from "../displayStatus";
+import { APPROVAL, REQUEST_STATUSCODE, type ApprovalRequestRow, type ApprovalResponseRow, type ApprovalRow, type ApprovalStepRow } from "./dataverse";
 import type { Entity } from "./xrmTypes";
-
-const APPROVED = new Set(["approve", "approved"]);
-const REJECTED = new Set(["reject", "rejected"]);
 
 /**
  * Display status from the stored statuscode and result text. Created and Suspended show as Pending;
  * an unknown statuscode also shows as Pending so the Approval stays visible.
  */
 export function deriveStatus(statuscode: number, result: string | null): { status: ApprovalStatus; outcome: string | null } {
-  switch (statuscode) {
-    case APPROVAL_STATUSCODE.completed: {
-      const normalised = result?.trim().toLowerCase() ?? "";
-      if (APPROVED.has(normalised)) return { status: "approved", outcome: null };
-      if (REJECTED.has(normalised)) return { status: "rejected", outcome: null };
-      return { status: "completed", outcome: result?.trim() || null };
-    }
-    case APPROVAL_STATUSCODE.expired:
-      return { status: "expired", outcome: null };
-    case APPROVAL_STATUSCODE.cancelled:
-      return { status: "cancelled", outcome: null };
-    case APPROVAL_STATUSCODE.abandoned:
-      return { status: "abandoned", outcome: null };
-    default:
-      return { status: "pending", outcome: null };
-  }
+  const covering = DISPLAY_STATUSES.filter((s) => s.statuscodes.includes(statuscode));
+  if (covering.length === 0) return { status: "pending", outcome: null };
+  const normalised = result?.trim().toLowerCase() ?? "";
+  const entry =
+    covering.find((s) => Array.isArray(s.results) && s.results.some((r) => r.toLowerCase() === normalised)) ??
+    covering.find((s) => s.results === "other" || s.results === undefined);
+  const status = entry?.status ?? "pending";
+  return { status, outcome: status === "completed" ? result?.trim() || null : null };
 }
 
 const text = (value: unknown): string | null => (typeof value === "string" ? value : null);
