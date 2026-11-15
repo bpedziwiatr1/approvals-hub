@@ -21,7 +21,7 @@ The Dataverse solution `ApprovalsHub` (publisher prefix `bpt`) contains the page
 
 1. Download `ApprovalsHub_<version>_managed.zip` from the [GitHub Releases](../../releases) page. Use the `_unmanaged` zip only in a development environment.
 2. In Power Apps, open **Solutions**, choose **Import solution**, select the zip and finish the import.
-3. Optional: set the current value of the environment variable `bpt_ApprovalsHubConfig` to your own configuration. Without one, the default value applies: `{"profiles":{"default":{"defaultStatus":"pending"}}}`. Its format is described in [Writing a Profile](#writing-a-profile).
+3. Optional: set the current value of the environment variable `bpt_ApprovalsHubConfig` to your own configuration. Without one, the default value applies: `{"profiles":{"default":{"defaultStatus":"pending","columns":["title","status","createdOn","owner","currentStep","lastDecision"]}}}`. Its format is described in [Writing a Profile](#writing-a-profile).
 4. Open the **Approvals Hub** app. Its single menu entry points at `$webresource:bpt_/approvalshub/index.html?data=profile%3Ddefault`.
 
 ## Adding a menu entry with a Profile to an existing app
@@ -48,8 +48,8 @@ The configuration value is one JSON object with a `profiles` map. Each key is a 
 | `pageTitle` | Title shown on the page. Without it, the translated built-in title is used. |
 | `scope` | The Profile Scope: a fixed filter users cannot remove. Criteria are `title` (`mode` of `equals`, `startsWith` or `contains`, plus `value`), `category` (exact match) and `tags` (contains). When a Profile extends another, scope criteria merge key by key. |
 | `pageSize` | Approvals per server page, from 1 to 500. Default 100. |
-| `defaultStatus` | Status filter used when the URL has no `status` parameter: `pending`, `approved`, `rejected`, `completed`, `cancelled`, `expired`, `abandoned`, or `null` for no default. Default `null`. |
-| `columns` | Columns to show, in order: any of `title`, `status`, `createdOn`. Default all three. |
+| `defaultStatus` | Status filter used when the URL has no `status` parameter: `pending`, `approved`, `rejected`, `completed`, `cancelled`, `expired`, `abandoned`, or `null` for no default. Default `pending`. |
+| `columns` | Columns to show, in order: any of `title`, `status`, `createdOn`, `owner`, `currentStep` (the Approval Step the Approval is at) and `lastDecision` (who answered last and when). Default all six. Every column except `lastDecision` can be sorted by clicking its header; users can resize all of them. |
 | `accentColor` | Brand colour as `#rrggbb`, or `null` for the default. |
 
 Scope criteria are ANDed with each other and with the title search and the status filter. Matching is case-insensitive.
@@ -124,7 +124,7 @@ Open `http://localhost:5173/?scenario=default&lang=en`. Without a hosting Xrm th
 | `scenario` | `default`, `multiStep`, `longList`, `statuses`, `scoped`, `currentUserIsApprover`, `currentUserNotApprover`, `noRegarding`, `empty`, `noPermission`, `serverError`, `slow` | Synthetic Approvals for the mock client. Unknown values fall back to `default`. `longList` has 5000 Approvals; `empty` has none; `noPermission` answers every request as forbidden; `serverError` fails the first list request so the Retry button can be tried; `slow` delays each response by 1.5 seconds. |
 | `client` | `fakeXrm` | Runs the real Dataverse client against an in-memory fake seeded with the scenario and a synthetic configuration with the Profiles `default`, `purchasing` and `travel`. |
 | `profile` | a Profile name | Selects the Profile locally. In the solution, the web resource `data` parameter does this instead. |
-| `lang` | `en` (default), `pl` | Interface language. |
+| `lang` | `en`, `pl` | Interface language. Without it the page follows the user's Dataverse language: Polish for 1045, English otherwise. Dates always show in the user's Dataverse time zone. |
 | `theme` | `light`, `dark` | Colour theme. Without it, the system preference applies. |
 
 With `client=fakeXrm`, the page runs the same data code as in Dataverse, so it is the closest local check. For local clients, Open record is recorded in `window.__openedRecords()` instead of opening a form.

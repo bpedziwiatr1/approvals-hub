@@ -4,7 +4,7 @@ import { profileNameFromSearch, resolveProfile } from "./profileConfig";
 const BUILT_IN = {
   name: "default",
   pageTitle: null,
-  columns: ["title", "status", "createdOn"],
+  columns: ["title", "status", "createdOn", "owner", "currentStep", "lastDecision"],
   pageSize: 100,
   defaultStatus: "pending",
   accentColor: null,
@@ -47,6 +47,13 @@ describe("resolveProfile fallback order", () => {
       },
       notices: [],
     });
+  });
+});
+
+describe("resolveProfile columns", () => {
+  it("accepts every grid column in any order", () => {
+    const columns = ["lastDecision", "owner", "currentStep", "createdOn", "status", "title"];
+    expect(resolveProfile(config({ a: { columns } }), "a").profile.columns).toEqual(columns);
   });
 });
 

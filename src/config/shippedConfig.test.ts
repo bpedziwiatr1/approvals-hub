@@ -15,5 +15,6 @@ describe("shipped default value of bpt_ApprovalsHubConfig", () => {
     expect(notices).toEqual([]);
     expect(profile.name).toBe("default");
     expect(profile.defaultStatus).toBe("pending");
+    expect(profile.columns).toEqual(["title", "status", "createdOn", "owner", "currentStep", "lastDecision"]);
   });
 });

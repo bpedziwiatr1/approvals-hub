@@ -4,7 +4,7 @@ import { DISPLAY_STATUS_ORDER } from "../data/displayStatus";
 
 export const CONFIG_SCHEMA_NAME = "bpt_ApprovalsHubConfig";
 
-export const COLUMNS = ["title", "status", "createdOn"] as const;
+export const COLUMNS = ["title", "status", "createdOn", "owner", "currentStep", "lastDecision"] as const;
 export type ColumnId = (typeof COLUMNS)[number];
 
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <environmentvariabledefinition schemaname="bpt_ApprovalsHubConfig">
-  <defaultvalue>{"profiles":{"default":{"defaultStatus":"pending"}}}</defaultvalue>
+  <defaultvalue>{"profiles":{"default":{"defaultStatus":"pending","columns":["title","status","createdOn","owner","currentStep","lastDecision"]}}}</defaultvalue>
   <introducedversion>1.0</introducedversion>
   <isrequired>0</isrequired>
   <displayname default="Approvals Hub configuration">
