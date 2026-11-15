@@ -24,5 +24,5 @@ Applies to every agent implementing tickets of the spec (#1), including subagent
 - Never ask the user mid-run. When a decision is not settled by the spec, an ADR or the glossary: choose the option that is easiest to reverse and consistent with them, carry on, and record it as a comment on both the ticket and #14 (Ticket / Decision / Alternatives / Why).
 - When the ticket contradicts the spec or an ADR, or needs something an agent cannot do (environment access, credentials, a human check): do not work around it. Comment on the ticket, add the `needs-info` label, skip it and take the next ticket on the frontier.
 - Never pick up tickets labelled `ready-for-human`, `needs-info` or `wontfix`.
-- Never push to `main`, force-push, or merge the integration PR; it stays a draft for human review.
-- Public repo: no customer, environment or person names, URLs or real GUIDs anywhere; test data is synthetic and built with factories.
+- Work ends with a draft PR on the integration branch; leaving it draft is the expected final state, the human marks it ready and merges. `main` is protected: reach it only through that PR.
+- Public repo: test data is synthetic, built with factories (`00000000-0000-...` GUIDs, `contoso`, `example.com`). Run `node scripts/check-leaks.mjs` before every commit; it fails on anything that looks like real environment data.
