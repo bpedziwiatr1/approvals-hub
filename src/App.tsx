@@ -15,6 +15,7 @@ import {
 } from "@fluentui/react-components";
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { I18nextProvider, useTranslation } from "react-i18next";
+import { loadProfile, type ColumnId, type ConfigNotice, type ResolvedProfile } from "./config/profileConfig";
 import type { ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
 import { STATUS_ORDER, readFilters, writeFilters, type Filters } from "./filters/urlState";
 import { StatusBadge } from "./StatusBadge";
@@ -23,12 +24,10 @@ import { visibleRange } from "./grid/virtualRange";
 import { createI18n, type Lang } from "./i18n";
 import { fluentTheme, type ThemeName } from "./theme";
 
-const PAGE_SIZE = 100;
 const ROW_HEIGHT = 44;
 const OVERSCAN = 10;
 /** Used until the scroll container has been laid out (and in jsdom, which has no layout). */
 const FALLBACK_VIEWPORT_HEIGHT = 800;
-const COLUMN_COUNT = 3;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const useStyles = makeStyles({
@@ -65,10 +64,23 @@ export interface AppProps {
 
 export function App({ client, lang, theme }: AppProps) {
   const i18n = useMemo(() => createI18n(lang), [lang]);
+  const [loaded, setLoaded] = useState<{ profile: ResolvedProfile; notices: ConfigNotice[] } | null>(null);
+
+  // The Profile comes from the environment variable, read once through the DataClient; loadProfile never rejects.
+  useEffect(() => {
+    let current = true;
+    void loadProfile(client, window.location.search).then((result) => {
+      if (current) setLoaded(result);
+    });
+    return () => {
+      current = false;
+    };
+  }, [client]);
+
   return (
     <I18nextProvider i18n={i18n}>
-      <FluentProvider theme={fluentTheme(theme)}>
-        <ApprovalsPage client={client} lang={lang} />
+      <FluentProvider theme={fluentTheme(theme, loaded?.profile.accentColor)}>
+        {loaded ? <ApprovalsPage client={client} lang={lang} profile={loaded.profile} notices={loaded.notices} /> : <Spinner label={i18n.t("list.loading")} />}
       </FluentProvider>
     </I18nextProvider>
   );
@@ -84,7 +96,7 @@ interface ListState {
 const INITIAL: ListState = { items: null, continuationToken: null, loadingMore: false, failed: false };
 
 /** Loads the list one server page at a time; `loadMore` fetches the next page when there is one. */
-function useApprovalPages(client: DataClient, query: ApprovalQuery) {
+function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: number) {
   const [state, setState] = useState<ListState>(INITIAL);
   const inFlight = useRef(false);
   const generation = useRef(0);
@@ -93,7 +105,7 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery) {
     const gen = ++generation.current;
     inFlight.current = true;
     client
-      .listApprovals(query, { size: PAGE_SIZE })
+      .listApprovals(query, { size: pageSize })
       .then((page) => {
         if (gen === generation.current) setState({ ...INITIAL, items: page.items, continuationToken: page.continuationToken });
       })
@@ -107,7 +119,7 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery) {
       generation.current += 1;
       inFlight.current = false;
     };
-  }, [client, query]);
+  }, [client, query, pageSize]);
 
   const loadMore = useCallback(() => {
     const token = state.continuationToken;
@@ -116,7 +128,7 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery) {
     inFlight.current = true;
     setState((s) => ({ ...s, loadingMore: true }));
     client
-      .listApprovals(query, { size: PAGE_SIZE, continuationToken: token })
+      .listApprovals(query, { size: pageSize, continuationToken: token })
       .then((page) => {
         if (gen === generation.current)
           setState((s) => ({ ...s, items: [...(s.items ?? []), ...page.items], continuationToken: page.continuationToken, loadingMore: false }));
@@ -127,22 +139,41 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery) {
       .finally(() => {
         if (gen === generation.current) inFlight.current = false;
       });
-  }, [client, query, state.continuationToken, state.failed]);
+  }, [client, query, pageSize, state.continuationToken, state.failed]);
 
   return { ...state, loadMore };
 }
 
-function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
+interface PageProps {
+  client: DataClient;
+  lang: Lang;
+  profile: ResolvedProfile;
+  notices: ConfigNotice[];
+}
+
+function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
   const styles = useStyles();
   const { t } = useTranslation();
-  const [filters, setFilters] = useState<Filters>(() => readFilters(window.location.search));
+  const [filters, setFilters] = useState<Filters>(() => {
+    const fromUrl = readFilters(window.location.search);
+    // The Profile's default status applies only while the URL carries no status filter of its own.
+    const hasStatusInUrl = new URLSearchParams(window.location.search).has("status");
+    return !hasStatusInUrl && profile.defaultStatus ? { ...fromUrl, statuses: [profile.defaultStatus] } : fromUrl;
+  });
   const title = useDebouncedValue(filters.title.trim(), SEARCH_DEBOUNCE_MS);
   const statusKey = filters.statuses.join(",");
 
-  // The server query: title search follows the debounced text, statuses apply at once.
+  // The server query: the Profile Scope always applies; title search follows the debounced text, statuses apply at once.
+  // The scope lives only here, never in the URL filter state or in any control, so users cannot remove it.
+  const scope = profile.scope;
+  const hasScope = Object.keys(scope).length > 0;
   const query = useMemo<ApprovalQuery>(
-    () => ({ ...(title ? { title } : {}), ...(statusKey ? { statuses: STATUS_ORDER.filter((s) => statusKey.split(",").includes(s)) } : {}) }),
-    [title, statusKey],
+    () => ({
+      ...(hasScope ? { scope } : {}),
+      ...(title ? { title } : {}),
+      ...(statusKey ? { statuses: STATUS_ORDER.filter((s) => statusKey.split(",").includes(s)) } : {}),
+    }),
+    [hasScope, scope, title, statusKey],
   );
 
   // Keep the URL in step with the filters actually applied, so the address can be shared.
@@ -156,7 +187,12 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>{t("app.title")}</h1>
+      <h1 className={styles.title}>{profile.pageTitle ?? t("app.title")}</h1>
+      {notices.map((notice) => (
+        <p key={notice.kind} role="alert">
+          {notice.kind === "invalidConfig" ? t("config.invalid", { detail: notice.detail }) : t("config.unknownProfile", { name: notice.name })}
+        </p>
+      ))}
       <div className={styles.filterBar}>
         <Input
           type="search"
@@ -174,15 +210,15 @@ function ApprovalsPage({ client, lang }: { client: DataClient; lang: Lang }) {
         </fieldset>
       </div>
       {/* Remounted per query: a new filter starts at the top of a fresh list. */}
-      <ApprovalList key={`${title}|${statusKey}`} client={client} lang={lang} query={query} />
+      <ApprovalList key={`${title}|${statusKey}`} client={client} lang={lang} query={query} profile={profile} />
     </main>
   );
 }
 
-function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang; query: ApprovalQuery }) {
+function ApprovalList({ client, lang, query, profile }: { client: DataClient; lang: Lang; query: ApprovalQuery; profile: ResolvedProfile }) {
   const styles = useStyles();
   const { t } = useTranslation();
-  const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client, query);
+  const { items, continuationToken, loadingMore, failed, loadMore } = useApprovalPages(client, query, profile.pageSize);
   const [scroll, setScroll] = useState({ top: 0, height: FALLBACK_VIEWPORT_HEIGHT });
 
   const count = items?.length ?? 0;
@@ -213,29 +249,23 @@ function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang;
           <Table role="grid" aria-label={t("app.title")} aria-rowcount={continuationToken ? -1 : count + 1}>
             <TableHeader className={styles.header}>
               <TableRow aria-rowindex={1}>
-                <TableHeaderCell>{t("list.column.title")}</TableHeaderCell>
-                <TableHeaderCell>{t("list.column.status")}</TableHeaderCell>
-                <TableHeaderCell>{t("list.column.createdOn")}</TableHeaderCell>
+                {profile.columns.map((column) => (
+                  <TableHeaderCell key={column}>{t(`list.column.${column}`)}</TableHeaderCell>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {start > 0 && <Spacer height={start * ROW_HEIGHT} />}
+              {start > 0 && <Spacer height={start * ROW_HEIGHT} columns={profile.columns.length} />}
               {items.slice(start, end).map((item, i) => (
                 <TableRow key={item.id} className={styles.row} aria-rowindex={start + i + 2}>
-                  <TableCell>
-                    <TableCellLayout truncate>{item.title}</TableCellLayout>
-                  </TableCell>
-                  <TableCell>
-                    <TableCellLayout truncate>
-                      <StatusBadge status={item.status} outcome={item.outcome} />
-                    </TableCellLayout>
-                  </TableCell>
-                  <TableCell>
-                    <TableCellLayout truncate>{dateFormat.format(new Date(item.createdOn))}</TableCellLayout>
-                  </TableCell>
+                  {profile.columns.map((column) => (
+                    <TableCell key={column}>
+                      <TableCellLayout truncate>{renderCell(column, item, dateFormat)}</TableCellLayout>
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))}
-              {end < count && <Spacer height={(count - end) * ROW_HEIGHT} />}
+              {end < count && <Spacer height={(count - end) * ROW_HEIGHT} columns={profile.columns.length} />}
             </TableBody>
           </Table>
           {loadingMore && <Spinner size="tiny" className={styles.more} label={t("list.loadingMore")} />}
@@ -250,11 +280,22 @@ function ApprovalList({ client, lang, query }: { client: DataClient; lang: Lang;
   );
 }
 
+function renderCell(column: ColumnId, item: ApprovalListItem, dateFormat: Intl.DateTimeFormat) {
+  switch (column) {
+    case "title":
+      return item.title;
+    case "status":
+      return <StatusBadge status={item.status} outcome={item.outcome} />;
+    case "createdOn":
+      return dateFormat.format(new Date(item.createdOn));
+  }
+}
+
 /** Stands in for rows outside the rendered window so the scrollbar matches the loaded list; hidden from assistive technology. */
-function Spacer({ height }: { height: number }) {
+function Spacer({ height, columns }: { height: number; columns: number }) {
   return (
     <tr aria-hidden="true" style={{ height }}>
-      <td colSpan={COLUMN_COUNT} style={{ padding: 0, border: 0 }} />
+      <td colSpan={columns} style={{ padding: 0, border: 0 }} />
     </tr>
   );
 }

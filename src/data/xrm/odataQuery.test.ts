@@ -56,3 +56,36 @@ describe("buildListOptions", () => {
     expect(params.get("$orderby")).toBe("createdon desc");
   });
 });
+
+describe("buildFilter Profile Scope", () => {
+  it.each([
+    ["equals", "msdyn_flow_approval_title eq 'Contoso PO'"],
+    ["startsWith", "startswith(msdyn_flow_approval_title,'Contoso PO')"],
+    ["contains", "contains(msdyn_flow_approval_title,'Contoso PO')"],
+  ] as const)("maps the %s title mode", (mode, expected) => {
+    expect(buildFilter({ scope: { title: { mode, value: "Contoso PO" } } })).toBe(expected);
+  });
+
+  it("matches category exactly and tags with contains, escaping quotes", () => {
+    expect(buildFilter({ scope: { category: "O'Brien", tags: "eu" } })).toBe(
+      "msdyn_flow_approval_category eq 'O''Brien' and contains(msdyn_flow_approval_tags,'eu')",
+    );
+  });
+
+  it("ANDs every scope criterion with the title search and the status set", () => {
+    expect(
+      buildFilter({
+        scope: { title: { mode: "startsWith", value: "PO" }, category: "Purchasing", tags: "eu" },
+        title: "order",
+        statuses: ["cancelled"],
+      }),
+    ).toBe(
+      "startswith(msdyn_flow_approval_title,'PO') and msdyn_flow_approval_category eq 'Purchasing' and contains(msdyn_flow_approval_tags,'eu')" +
+        " and contains(msdyn_flow_approval_title,'order') and (statuscode eq 192350006)",
+    );
+  });
+
+  it("is null for an empty scope", () => {
+    expect(buildFilter({ scope: {} })).toBeNull();
+  });
+});

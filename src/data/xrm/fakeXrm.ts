@@ -11,6 +11,8 @@ export interface RecordedRequest {
 
 export interface FakeXrmData {
   approvals?: ApprovalRow[];
+  /** Environment variable definitions; `currentValue` is the environment's own value row, if any. */
+  environmentVariables?: { schemaName: string; defaultValue?: string; currentValue?: string }[];
   /** Every request rejects with this error (e.g. a 403 privilege error). */
   failWith?: XrmErrorLike;
 }
@@ -46,9 +48,12 @@ function applyOrderBy(rows: Entity[], orderby: string | undefined): Entity[] {
   });
 }
 
-function applySelect(row: Entity, select: string | undefined): Entity {
-  if (!select) return { ...row };
-  return Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null]));
+function applySelect(row: Entity, select: string | undefined, expand: string | undefined): Entity {
+  const selected = select ? Object.fromEntries(select.split(",").map((f) => [f, row[f] ?? null])) : { ...row };
+  // $expand: the navigation property named before any "(" is returned as stored, nested $select ignored.
+  const navigation = expand?.split("(")[0];
+  if (navigation) selected[navigation] = row[navigation] ?? [];
+  return selected;
 }
 
 /**
@@ -60,6 +65,11 @@ export function createFakeXrm(data: FakeXrmData = {}) {
   const requests: RecordedRequest[] = [];
   const tables: Record<string, Entity[]> = {
     msdyn_flow_approval: (data.approvals ?? []) as unknown as Entity[],
+    environmentvariabledefinition: (data.environmentVariables ?? []).map((v) => ({
+      schemaname: v.schemaName,
+      defaultvalue: v.defaultValue ?? null,
+      environmentvariabledefinition_environmentvariablevalue: v.currentValue === undefined ? [] : [{ value: v.currentValue }],
+    })),
   };
 
   const xrm: XrmLike = {
@@ -75,7 +85,7 @@ export function createFakeXrm(data: FakeXrmData = {}) {
         const sorted = applyOrderBy(query.$filter ? rows.filter(compileFilter(query.$filter)) : rows, query.$orderby);
         const start = $skiptoken ? Number($skiptoken) : 0;
         const end = maxPageSize ? start + maxPageSize : sorted.length;
-        const entities = sorted.slice(start, end).map((row) => applySelect(row, query.$select));
+        const entities = sorted.slice(start, end).map((row) => applySelect(row, query.$select, query.$expand));
         if (end >= sorted.length) return { entities };
         const next = new URLSearchParams({ ...query, $skiptoken: String(end) });
         return { entities, nextLink: `${BASE_URL}${entitySet}?${next.toString()}` };

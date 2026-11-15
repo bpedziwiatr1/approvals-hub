@@ -16,5 +16,7 @@
   "list.region": "Lista zatwierdzeń",
   "list.loadingMore": "Ładowanie kolejnych zatwierdzeń",
   "filter.search": "Szukaj po tytule",
-  "filter.status": "Status"
+  "filter.status": "Status",
+  "config.invalid": "Konfiguracja jest nieprawidłowa, dlatego widoczne są ustawienia wbudowane. {{detail}}",
+  "config.unknownProfile": "Profil \"{{name}}\" nie istnieje, dlatego widoczny jest profil domyślny."
 }

@@ -31,3 +31,27 @@ describe.each(clients())("%s filtering", (_name, client) => {
     expect(await titles(client, query)).toEqual(expected);
   });
 });
+
+const scopedClients = (): [string, DataClient][] => [
+  ["mockClient", createMockClient("scoped")],
+  ["xrmClient", createXrmClient(createFakeXrm({ approvals: scenarioApprovals("scoped") }).xrm)],
+];
+
+const SCOPE_CASES: [string, ApprovalQuery, string[]][] = [
+  ["no scope", {}, ["Contoso PO 100", "Contoso PO 200", "Contoso trip Berlin", "Annual Contoso PO review", "Contoso PO"]],
+  ["title equals is exact and case-insensitive", { scope: { title: { mode: "equals", value: "contoso po" } } }, ["Contoso PO"]],
+  ["title startsWith", { scope: { title: { mode: "startsWith", value: "Contoso PO" } } }, ["Contoso PO 100", "Contoso PO 200", "Contoso PO"]],
+  ["title contains", { scope: { title: { mode: "contains", value: "po " } } }, ["Contoso PO 100", "Contoso PO 200", "Annual Contoso PO review"]],
+  ["category", { scope: { category: "Travel" } }, ["Contoso trip Berlin"]],
+  ["tags are matched with contains", { scope: { tags: "urgent" } }, ["Contoso PO 100"]],
+  ["scope criteria are ANDed", { scope: { title: { mode: "startsWith", value: "Contoso PO" }, category: "Purchasing", tags: "eu" } }, ["Contoso PO 100"]],
+  ["scope and title search are ANDed", { scope: { category: "Purchasing" }, title: "review" }, ["Annual Contoso PO review"]],
+  ["scope and statuses are ANDed", { scope: { category: "Purchasing" }, statuses: ["approved"] }, ["Contoso PO 200"]],
+  ["a title search cannot widen the scope", { scope: { category: "Travel" }, title: "PO" }, []],
+];
+
+describe.each(scopedClients())("%s Profile Scope", (_name, client) => {
+  it.each(SCOPE_CASES)("%s", async (_label, query, expected) => {
+    expect(await titles(client, query)).toEqual(expected);
+  });
+});

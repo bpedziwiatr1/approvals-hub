@@ -1,6 +1,7 @@
 import type { DataClient } from "./dataClient";
 import { createMockClient } from "./mockClient";
-import { isScenarioName, scenarioApprovals } from "./scenarios";
+import { CONFIG_SCHEMA_NAME } from "../config/profileConfig";
+import { MOCK_CONFIG_JSON, isScenarioName, scenarioApprovals } from "./scenarios";
 import { createFakeXrm } from "./xrm/fakeXrm";
 import { createXrmClient, findXrm, type HostWindow } from "./xrm/xrmClient";
 
@@ -16,7 +17,7 @@ export function selectClient(search: string, win: HostWindow): { client: DataCli
   const scenario = isScenarioName(requested) ? requested : "default";
 
   if (params.get("client") === "fakeXrm") {
-    return { client: createXrmClient(createFakeXrm({ approvals: scenarioApprovals(scenario) }).xrm), source: "fakeXrm" };
+    return { client: createXrmClient(createFakeXrm({ approvals: scenarioApprovals(scenario), environmentVariables: [{ schemaName: CONFIG_SCHEMA_NAME, defaultValue: MOCK_CONFIG_JSON }] }).xrm), source: "fakeXrm" };
   }
   const xrm = findXrm(win);
   if (xrm) return { client: createXrmClient(xrm), source: "xrm" };
