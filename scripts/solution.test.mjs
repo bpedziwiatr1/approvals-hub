@@ -70,6 +70,13 @@ test("the sitemap has one entry to the page with the default profile and the ico
   assert.match(xml, /Icon="\$webresource:bpt_\/approvalshub\/icon\.svg"/);
 });
 
+test("the app module lists its sitemap as a component and the sitemap has a name", () => {
+  const app = readFileSync(join(src, "AppModules/bpt_ApprovalsHub/AppModule.xml"), "utf8");
+  assert.match(app, /<AppModuleComponent type="62" schemaName="bpt_ApprovalsHub" \/>/);
+  const map = readFileSync(join(src, "AppModuleSiteMaps/bpt_ApprovalsHub/AppModuleSiteMap.xml"), "utf8");
+  assert.match(map, /<SiteMapName>bpt_ApprovalsHub<\/SiteMapName>/);
+});
+
 const hasPac = spawnSync("pac", ["help"], { shell: true }).status === 0;
 test("pac packs the solution with every component in the zip and unpacks it again", { skip: !hasPac && "pac is not installed" }, () => {
   const root = mkdtempSync(join(tmpdir(), "ah-pac-"));
