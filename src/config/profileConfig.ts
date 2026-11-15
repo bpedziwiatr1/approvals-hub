@@ -50,7 +50,7 @@ const builtInProfile = (): ResolvedProfile => ({
   pageTitle: null,
   columns: [...COLUMNS],
   pageSize: 100,
-  defaultStatus: null,
+  defaultStatus: "pending",
   accentColor: null,
   scope: {},
 });

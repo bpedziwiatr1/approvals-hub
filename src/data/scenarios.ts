@@ -188,8 +188,8 @@ export function scenarioApprovals(name: ScenarioName): ApprovalRow[] {
 /** Profile configuration served by mockClient and the fakeXrm environment variable, for `?profile=` locally. */
 export const MOCK_CONFIG_JSON = JSON.stringify({
   profiles: {
-    default: {},
-    purchasing: { pageTitle: "Purchasing approvals", pageSize: 50, accentColor: "#107c10", scope: { category: "Purchasing" } },
+    default: { defaultStatus: null },
+    purchasing: { pageTitle: "Purchasing approvals", pageSize: 50, defaultStatus: null, accentColor: "#107c10", scope: { category: "Purchasing" } },
     travel: { extends: "purchasing", pageTitle: "Travel approvals", accentColor: "#8e562e", defaultStatus: "approved", scope: { category: "Travel" } },
   },
 });

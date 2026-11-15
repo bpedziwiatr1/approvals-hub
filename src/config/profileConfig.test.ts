@@ -6,7 +6,7 @@ const BUILT_IN = {
   pageTitle: null,
   columns: ["title", "status", "createdOn"],
   pageSize: 100,
-  defaultStatus: null,
+  defaultStatus: "pending",
   accentColor: null,
   scope: {},
 };
