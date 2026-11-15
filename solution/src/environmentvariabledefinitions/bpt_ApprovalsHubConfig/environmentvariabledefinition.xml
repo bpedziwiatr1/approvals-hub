@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<environmentvariabledefinition schemaname="bpt_ApprovalsHubConfig">
+  <defaultvalue>{"profiles":{"default":{"defaultStatus":"pending"}}}</defaultvalue>
+  <introducedversion>1.0</introducedversion>
+  <isrequired>0</isrequired>
+  <displayname default="Approvals Hub configuration">
+    <label description="Approvals Hub configuration" languagecode="1033" />
+  </displayname>
+  <description default="JSON with the Approvals Hub profiles: title, columns, page size, default status and the fixed filter (scope) of each profile.">
+    <label description="JSON with the Approvals Hub profiles: title, columns, page size, default status and the fixed filter (scope) of each profile." languagecode="1033" />
+  </description>
+  <type>100000000</type>
+</environmentvariabledefinition>

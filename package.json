@@ -14,7 +14,7 @@
     "test:e2e": "playwright test",
     "check-dist": "node scripts/check-dist.mjs",
     "check-leaks": "node --test scripts/check-leaks.test.mjs && node scripts/check-leaks.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run check-leaks && node --test scripts/check-dist.test.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run check-leaks && node --test scripts/check-dist.test.mjs scripts/solution.test.mjs",
     "prepare": "husky"
   },
   "dependencies": {

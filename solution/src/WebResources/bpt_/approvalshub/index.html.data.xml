@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WebResource>
+  <WebResourceId>{00000000-0000-0000-0000-0000000000b1}</WebResourceId>
+  <Name>bpt_/approvalshub/index.html</Name>
+  <DisplayName>Approvals Hub page</DisplayName>
+  <Description>Single-file page of the Approvals Hub.</Description>
+  <WebResourceType>1</WebResourceType>
+  <IntroducedVersion>1.0</IntroducedVersion>
+  <IsEnabledForMobileClient>0</IsEnabledForMobileClient>
+  <IsAvailableForMobileOffline>0</IsAvailableForMobileOffline>
+  <IsCustomizable>1</IsCustomizable>
+  <CanBeDeleted>1</CanBeDeleted>
+  <IsHidden>0</IsHidden>
+  <FileName>/WebResources/bpt_/approvalshub/index.html</FileName>
+</WebResource>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppModule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <UniqueName>bpt_ApprovalsHub</UniqueName>
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+  <IsDefault>0</IsDefault>
+  <WebResourceId>{00000000-0000-0000-0000-0000000000b2}</WebResourceId>
+  <AppModuleXml>
+    <AppElements />
+    <AppConfigs />
+  </AppModuleXml>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+  <FormFactor>1</FormFactor>
+  <ClientType>4</ClientType>
+  <NavigationType>0</NavigationType>
+  <LocalizedNames>
+    <LocalizedName description="Approvals Hub" languagecode="1033" />
+  </LocalizedNames>
+  <Descriptions>
+    <Description description="Read-only list of Power Automate approvals with their responses." languagecode="1033" />
+  </Descriptions>
+</AppModule>
