@@ -87,6 +87,8 @@ export interface CurrentUser {
   id: string;
   name: string;
   languageId: number;
+  /** Minutes to add to UTC to get the user's local time (their Dataverse time zone). */
+  timeZoneOffsetMinutes: number;
 }
 
 export interface RecordRef {

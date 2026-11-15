@@ -4,7 +4,7 @@ import { findXrm, type HostWindow } from "./xrmClient";
 
 const globalContext = {
   getClientUrl: () => "https://contoso.crm.dynamics.com",
-  userSettings: { userId: "{00000000-0000-0000-0000-0000000000F1}", userName: "Alex Contoso", languageId: 1033 },
+  userSettings: { userId: "{00000000-0000-0000-0000-0000000000F1}", userName: "Alex Contoso", languageId: 1033, getTimeZoneOffsetMinutes: () => 0 },
 };
 
 describe("findXrm", () => {

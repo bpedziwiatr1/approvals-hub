@@ -13,6 +13,8 @@ export interface FakeXrmData {
   approvals?: ApprovalRow[];
   /** Environment variable definitions; `currentValue` is the environment's own value row, if any. */
   environmentVariables?: { schemaName: string; defaultValue?: string; currentValue?: string }[];
+  /** The signed-in user; `timeZoneOffsetMinutes` is added to UTC to get their local time. */
+  user?: { id: string; name: string; languageId: number; timeZoneOffsetMinutes: number };
   /** Every request rejects with this error (e.g. a 403 privilege error). */
   failWith?: XrmErrorLike;
 }
@@ -68,6 +70,7 @@ function applyExpand(result: Entity, source: Entity, expand: string | undefined)
  * Each request is recorded as it would reach the Web API (entity set, query options, Prefer header).
  */
 export function createFakeXrm(data: FakeXrmData = {}) {
+  const user = data.user ?? { id: "{00000000-0000-0000-0000-0000000000F1}", name: "Alex Contoso", languageId: 1033, timeZoneOffsetMinutes: 0 };
   const requests: RecordedRequest[] = [];
   const openedForms: { entityName: string; entityId: string }[] = [];
   const tables: Record<string, Entity[]> = {
@@ -106,7 +109,12 @@ export function createFakeXrm(data: FakeXrmData = {}) {
     Utility: {
       getGlobalContext: () => ({
         getClientUrl: () => "https://contoso.crm.dynamics.com",
-        userSettings: { userId: "{00000000-0000-0000-0000-0000000000F1}", userName: "Alex Contoso", languageId: 1033 },
+        userSettings: {
+          userId: user.id,
+          userName: user.name,
+          languageId: user.languageId,
+          getTimeZoneOffsetMinutes: () => user.timeZoneOffsetMinutes,
+        },
       }),
     },
   };

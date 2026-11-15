@@ -77,7 +77,7 @@ export function createMockClient(scenario: ScenarioName): MockClient {
       yield* matching(query);
     },
     async getCurrentUser() {
-      return { id: CURRENT_USER_ID, name: "Alex Contoso", languageId: 1033 };
+      return { id: CURRENT_USER_ID, name: "Alex Contoso", languageId: 1033, timeZoneOffsetMinutes: 0 };
     },
     async loadConfigValue() {
       return MOCK_CONFIG_JSON;

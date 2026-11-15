@@ -14,4 +14,12 @@ describe("i18n", () => {
     expect(resolveLang("?lang=xx")).toBe("en");
     expect(resolveLang("")).toBe("en");
   });
+
+  it("falls back to the Dataverse language of the user: Polish for 1045, English otherwise; ?lang= wins", () => {
+    expect(resolveLang("", 1045)).toBe("pl");
+    expect(resolveLang("", 1033)).toBe("en");
+    expect(resolveLang("", 1031)).toBe("en");
+    expect(resolveLang("?lang=en", 1045)).toBe("en");
+    expect(resolveLang("?lang=xx", 1045)).toBe("pl");
+  });
 });

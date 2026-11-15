@@ -67,8 +67,9 @@ describe("Approval detail pane", () => {
     const step1 = within(await within(pane).findByRole("group", { name: "Step 1: Manager" }));
     expect(step1.getByText("Ann Contoso")).toBeInTheDocument();
     expect(step1.getByText("Approve")).toBeInTheDocument();
+    // The mock user is in UTC, so the instant shows as written in the scenario, whatever the time zone of the machine.
     expect(step1.getByText("Within budget")).toBeInTheDocument();
-    const expectedDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date("2025-04-02T09:15:00Z"));
+    const expectedDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date("2025-04-02T09:15:00Z"));
     expect(step1.getByText(expectedDate)).toBeInTheDocument();
 
     const step2 = within(within(pane).getByRole("group", { name: "Step 2: Finance" }));

@@ -46,8 +46,6 @@ function nextPageOptions(nextLink: string | undefined): string | null {
 /** Largest page Dataverse returns; counts and exports read every matching row in pages of this size. */
 const MAX_PAGE_SIZE = 5000;
 
-const notYet = (what: string) => Promise.reject(new DataError("server", `${what} is not available yet`));
-
 /** DataClient backed by the model-driven app's Xrm.WebApi, running as the signed-in user. */
 export function createXrmClient(xrm: XrmLike): DataClient {
   const retrieve = async (logicalName: string, options: string, pageSize: number): Promise<RetrieveMultipleResult> => {
@@ -95,7 +93,16 @@ export function createXrmClient(xrm: XrmLike): DataClient {
     async *exportApprovals(query) {
       for await (const row of everyRow(buildListOptions(query, query.assignedToMe ? currentUserId() : undefined))) yield mapApprovalListItem(row);
     },
-    getCurrentUser: () => notYet("getCurrentUser"),
+    async getCurrentUser() {
+      const settings = xrm.Utility?.getGlobalContext().userSettings;
+      if (!settings) throw new DataError("server", "The current user is not available");
+      return {
+        id: settings.userId.replace(/[{}]/g, "").toLowerCase(),
+        name: settings.userName,
+        languageId: settings.languageId,
+        timeZoneOffsetMinutes: settings.getTimeZoneOffsetMinutes(),
+      };
+    },
     async loadConfigValue(schemaName) {
       const filter = `${ENV_VAR.schemaName} eq '${schemaName.replace(/'/g, "''")}'`;
       const expand = `${ENV_VAR.valuesNavigation}($select=value)`;

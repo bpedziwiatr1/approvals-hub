@@ -25,7 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 
 import { Dismiss24Regular } from "@fluentui/react-icons";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { loadProfile, type ColumnId, type ConfigNotice, type ResolvedProfile } from "./config/profileConfig";
-import { DataError, type ApprovalListItem, ApprovalQuery, DataClient } from "./data/dataClient";
+import { DataError, type ApprovalListItem, type ApprovalQuery, type CurrentUser, type DataClient } from "./data/dataClient";
 import { toTiles, type SummaryTiles as Tiles } from "./data/statusTiles";
 import { downloadCsv, toCsv } from "./export/csv";
 import { DetailPane } from "./detail/DetailPane";
@@ -34,7 +34,9 @@ import { StatusBadge } from "./StatusBadge";
 import { useNarrow } from "./useNarrow";
 import { useDebouncedValue } from "./useDebouncedValue";
 import { visibleRange } from "./grid/virtualRange";
-import { createI18n, type Lang } from "./i18n";
+import { createI18n, resolveLang, type Lang } from "./i18n";
+import { UserTimeProvider, useUserTime } from "./time/userTimeContext";
+import { browserOffsetMinutes, userDayRange } from "./time/userTime";
 import { fluentTheme, type ThemeName } from "./theme";
 
 const ROW_HEIGHT = 44;
@@ -85,19 +87,27 @@ const useStyles = makeStyles({
 
 export interface AppProps {
   client: DataClient;
-  lang: Lang;
+  /** Overrides the language of the user (`?lang=` in local development and tests). */
+  lang?: Lang;
   theme: ThemeName;
 }
 
-export function App({ client, lang, theme }: AppProps) {
-  const i18n = useMemo(() => createI18n(lang), [lang]);
-  const [loaded, setLoaded] = useState<{ profile: ResolvedProfile; notices: ConfigNotice[] } | null>(null);
+type UserSettings = Pick<CurrentUser, "languageId" | "timeZoneOffsetMinutes">;
 
-  // The Profile comes from the environment variable, read once through the DataClient; loadProfile never rejects.
+/** Used when the user cannot be read: English and the browser's time zone. */
+const unknownUser = (): UserSettings => ({ languageId: 0, timeZoneOffsetMinutes: browserOffsetMinutes() });
+
+export function App({ client, lang: langOverride, theme }: AppProps) {
+  const [loaded, setLoaded] = useState<{ profile: ResolvedProfile; notices: ConfigNotice[]; user: UserSettings } | null>(null);
+  const lang = langOverride ?? resolveLang(window.location.search, loaded?.user.languageId);
+  const i18n = useMemo(() => createI18n(lang), [lang]);
+
+  // The Profile comes from the environment variable and the language and time zone from the user's settings, read once through the DataClient;
+  // neither read rejects (a failure becomes a notice or the fallback user).
   useEffect(() => {
     let current = true;
-    void loadProfile(client, window.location.search).then((result) => {
-      if (current) setLoaded(result);
+    void Promise.all([loadProfile(client, window.location.search), client.getCurrentUser().catch(unknownUser)]).then(([result, user]) => {
+      if (current) setLoaded({ ...result, user });
     });
     return () => {
       current = false;
@@ -107,7 +117,13 @@ export function App({ client, lang, theme }: AppProps) {
   return (
     <I18nextProvider i18n={i18n}>
       <FluentProvider theme={fluentTheme(theme, loaded?.profile.accentColor)}>
-        {loaded ? <ApprovalsPage client={client} lang={lang} profile={loaded.profile} notices={loaded.notices} /> : <Spinner label={i18n.t("list.loading")} />}
+        {loaded ? (
+          <UserTimeProvider lang={lang} offsetMinutes={loaded.user.timeZoneOffsetMinutes}>
+            <ApprovalsPage client={client} profile={loaded.profile} notices={loaded.notices} />
+          </UserTimeProvider>
+        ) : (
+          <Spinner label={i18n.t("list.loading")} />
+        )}
       </FluentProvider>
     </I18nextProvider>
   );
@@ -181,14 +197,14 @@ function useApprovalPages(client: DataClient, query: ApprovalQuery, pageSize: nu
 
 interface PageProps {
   client: DataClient;
-  lang: Lang;
   profile: ResolvedProfile;
   notices: ConfigNotice[];
 }
 
-function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
+function ApprovalsPage({ client, profile, notices }: PageProps) {
   const styles = useStyles();
   const { t } = useTranslation();
+  const { offsetMinutes } = useUserTime();
   const [filters, setFilters] = useState<Filters>(() => {
     const fromUrl = readFilters(window.location.search);
     // The Profile's default status applies only while the URL carries no status filter of its own.
@@ -212,12 +228,11 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
       ...(statusKey ? { statuses: STATUS_ORDER.filter((s) => statusKey.split(",").includes(s)) } : {}),
       ...(ownerId ? { ownerId } : {}),
       ...(approverId ? { approverId } : {}),
-      // Calendar days are UTC days, both ends inclusive.
-      ...(createdFrom ? { createdFrom: `${createdFrom}T00:00:00.000Z` } : {}),
-      ...(createdTo ? { createdTo: `${createdTo}T23:59:59.999Z` } : {}),
+      // The days are the user's calendar days (their Dataverse time zone), both ends inclusive.
+      ...userDayRange({ from: createdFrom, to: createdTo }, offsetMinutes),
       ...(assigned ? { assignedToMe: { pendingOnly: pendingOnly === true } } : {}),
     }),
-    [hasScope, scope, title, statusKey, ownerId, approverId, createdFrom, createdTo, assigned, pendingOnly],
+    [hasScope, scope, title, statusKey, ownerId, approverId, createdFrom, createdTo, assigned, pendingOnly, offsetMinutes],
   );
 
   // Keep the URL in step with the filters actually applied, so the address can be shared.
@@ -304,7 +319,7 @@ function ApprovalsPage({ client, lang, profile, notices }: PageProps) {
         />
       </div>
       {/* Remounted per query: a new filter starts at the top of a fresh list. */}
-      <ApprovalList key={pageKey} client={client} lang={lang} query={query} profile={profile} reloadKey={refreshKey} />
+      <ApprovalList key={pageKey} client={client} query={query} profile={profile} reloadKey={refreshKey} />
     </main>
   );
 }
@@ -370,7 +385,7 @@ function SummaryTiles({ client, query }: { client: DataClient; query: ApprovalQu
   );
 }
 
-function ApprovalList({ client, lang, query, profile, reloadKey }: { client: DataClient; lang: Lang; query: ApprovalQuery; profile: ResolvedProfile; reloadKey: number }) {
+function ApprovalList({ client, query, profile, reloadKey }: { client: DataClient; query: ApprovalQuery; profile: ResolvedProfile; reloadKey: number }) {
   const styles = useStyles();
   const { t } = useTranslation();
   const { items, continuationToken, loadingMore, failed, failure, loadMore, retry } = useApprovalPages(client, query, profile.pageSize, reloadKey);
@@ -391,7 +406,7 @@ function ApprovalList({ client, lang, query, profile, reloadKey }: { client: Dat
     setScroll({ top: el.scrollTop, height: el.clientHeight || FALLBACK_VIEWPORT_HEIGHT });
   };
 
-  const dateFormat = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" }), [lang]);
+  const { format: formatDate } = useUserTime();
 
   return (
     <>
@@ -438,7 +453,7 @@ function ApprovalList({ client, lang, query, profile, reloadKey }: { client: Dat
                 >
                   {profile.columns.map((column) => (
                     <TableCell key={column}>
-                      <TableCellLayout truncate>{renderCell(column, item, dateFormat)}</TableCellLayout>
+                      <TableCellLayout truncate>{renderCell(column, item, formatDate)}</TableCellLayout>
                     </TableCell>
                   ))}
                 </TableRow>
@@ -459,11 +474,11 @@ function ApprovalList({ client, lang, query, profile, reloadKey }: { client: Dat
               <DrawerHeaderTitle action={<Button appearance="subtle" aria-label={t("detail.close")} icon={<Dismiss24Regular />} onClick={() => setSelectedId(null)} />}>{t("detail.region")}</DrawerHeaderTitle>
             </DrawerHeader>
             <DrawerBody>
-              <DetailPane key={`${selectedId}|${reloadKey}`} client={client} approvalId={selectedId} lang={lang} layout="drawer" />
+              <DetailPane key={`${selectedId}|${reloadKey}`} client={client} approvalId={selectedId} layout="drawer" />
             </DrawerBody>
           </OverlayDrawer>
         ) : (
-          <DetailPane key={`${selectedId}|${reloadKey}`} client={client} approvalId={selectedId} lang={lang} />
+          <DetailPane key={`${selectedId}|${reloadKey}`} client={client} approvalId={selectedId} />
         )}
         </div>
       )}
@@ -471,14 +486,14 @@ function ApprovalList({ client, lang, query, profile, reloadKey }: { client: Dat
   );
 }
 
-function renderCell(column: ColumnId, item: ApprovalListItem, dateFormat: Intl.DateTimeFormat) {
+function renderCell(column: ColumnId, item: ApprovalListItem, formatDate: (iso: string) => string) {
   switch (column) {
     case "title":
       return item.title;
     case "status":
       return <StatusBadge status={item.status} outcome={item.outcome} />;
     case "createdOn":
-      return dateFormat.format(new Date(item.createdOn));
+      return formatDate(item.createdOn);
   }
 }
 
