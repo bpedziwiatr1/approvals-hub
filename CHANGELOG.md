@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/bpedziwiatr1/approvals-hub/compare/v1.0.1...v1.0.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **release:** tags and titles without the component prefix ([26659e3](https://github.com/bpedziwiatr1/approvals-hub/commit/26659e3c1af5e7386979ab75d4f3a2564945501b))
+* **release:** tags and titles without the component prefix ([7ecfd5e](https://github.com/bpedziwiatr1/approvals-hub/commit/7ecfd5ecb1aa25b94899e6dcba07c7546d5e0e60))
+
 ## [1.0.1](https://github.com/bpedziwiatr1/approvals-hub/compare/approvals-hub-v1.0.0...approvals-hub-v1.0.1) (2026-11-15)
 
 

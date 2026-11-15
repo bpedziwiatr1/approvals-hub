@@ -8,7 +8,7 @@
       <LocalizedName description="Approvals Hub" languagecode="1033" />
     </LocalizedNames>
     <Descriptions><Description description="Read-only list of Power Automate approvals with their responses." languagecode="1033" /></Descriptions>
-    <Version>1.0.1</Version><!-- x-release-please-version -->
+    <Version>1.0.2</Version><!-- x-release-please-version -->
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>
